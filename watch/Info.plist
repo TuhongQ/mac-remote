@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Mac 在局域网里，用的是 http：允许访问局域网地址 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>连接局域网里的 Mac，把手腕动作发过去控制鼠标。</string>
+	<key>NSMotionUsageDescription</key>
+	<string>读取手腕转动来移动 Mac 的鼠标。</string>
+	<!-- 放下手腕后继续运行（理疗类后台会话，最长约 1 小时） -->
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>physical-therapy</string>
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,1422 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Mac 遥控">
+<meta name="theme-color" content="#0e0f11">
+<title>Mac 遥控</title>
+<style>
+:root{
+  --bg:#0e0f11; --pad:#18191d; --pad-hi:#1d1f24; --line:#26292f; --fg:#e8eaee; --dim:#8b919c; --faint:#4a4f58;
+  --acc:#4c8dff; --ok:#3ccf7a; --warn:#f2b441; --bad:#ff5d5d; --btn:#212328; --btn-hi:#2a2d34; --btn-on:#2f3d57;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+  --r:22px; --gap:10px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;overscroll-behavior:none}
+/* 高度由脚本设成实际能显示的高度（window.innerHeight）：Safari 地址栏收起 / 主屏幕 App 都正好铺满，不会超出屏幕被挡住；弹出键盘时改成键盘上方的高度 */
+body{position:fixed;top:0;left:0;right:0;height:100vh;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.ipad.land #side{width:84px}
+.penhint{display:none} body.ipad .penhint{display:block}
+#app{display:flex;flex-direction:column;gap:var(--gap);height:100%;padding:calc(var(--safe-t) + 4px) 14px calc(var(--safe-b) + 6px)}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+header{display:flex;align-items:center;justify-content:space-between;height:36px;flex:none}
+.conn{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 12px;border-radius:999px;background:var(--pad)}
+#dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none}
+#dot.ok{background:var(--ok)} #dot.wait{background:var(--warn)}
+#status{color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:36px;height:36px;border:0;border-radius:50%;background:var(--pad);color:var(--dim);display:flex;align-items:center;justify-content:center;padding:0}
+.iconbtn.on{background:var(--btn-on);color:var(--fg)}
+
+/* 触控板 + 左右键：做成一整块，像笔记本的触控板 */
+#surface{flex:1;min-height:150px;display:flex;flex-direction:column;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--line);gap:1px}
+#pad{flex:1;min-height:80px;background:var(--pad);position:relative;touch-action:none;transition:background .15s}
+#pad.active{background:var(--pad-hi)}
+#pad.drag{box-shadow:inset 0 0 0 2px var(--acc)}
+#hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#5a606a;font-size:13px;line-height:2;padding:20px;pointer-events:none;transition:opacity .4s}
+#legend{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:var(--faint);font-size:11.5px;letter-spacing:.3px;pointer-events:none;opacity:0;transition:opacity .4s}
+#badge{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--acc);background:rgba(76,141,255,.12);padding:3px 10px;border-radius:999px;opacity:0;transition:opacity .15s;pointer-events:none}
+#badge.show{opacity:1}
+#mouse{display:flex;gap:1px;height:56px;flex:none}
+#mouse button{flex:1;border:0;background:var(--btn);color:var(--dim);font-size:14px;letter-spacing:1px;touch-action:none;transition:background .1s,color .1s}
+#mouse button.on,#mouse button:active{background:var(--btn-on);color:var(--fg)}
+
+/* 面板 */
+.sheet{display:none;flex:none;background:var(--pad);border:1px solid var(--line);border-radius:18px;padding:12px}
+.sheet.open{display:block}
+.row{display:flex;gap:6px;margin-top:8px}
+.row>*{flex:1}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+button.k{background:var(--btn);color:var(--fg);border:0;border-radius:11px;height:42px;font-size:14px;padding:0 4px;touch-action:manipulation}
+button.k:active,button.k.on{background:var(--btn-on)}
+button.k.pri{background:var(--acc);color:#fff}
+.seg{display:flex;background:var(--btn);border-radius:11px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;color:var(--dim);height:32px;border-radius:8px;font-size:13.5px}
+.seg button.on{background:#3a3f48;color:var(--fg)}
+textarea{width:100%;margin-top:8px;height:64px;resize:none;border-radius:11px;border:1px solid var(--line);background:#111215;color:var(--fg);font-size:16px;padding:9px 11px;-webkit-user-select:text;user-select:text}
+textarea:focus{outline:none;border-color:var(--acc)}
+.note{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.5}
+#settings{max-height:52vh;overflow-y:auto}
+#settings label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px}
+#settings label:last-of-type{border:0}
+#settings .opt{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:14px}
+#settings .opt .seg{flex:none;width:170px}
+#sMode{font-size:12px;line-height:1.25}
+#sMode.on{background:rgba(76,141,255,.45);color:#fff}
+#settings .note a{color:var(--acc)}
+#settings input[type=range]{flex:1;max-width:55%}
+#settings input[type=text]{flex:1;max-width:60%;background:#111215;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:15px;-webkit-user-select:text;user-select:text}
+
+/* 底部工具栏 */
+nav{display:flex;gap:var(--gap);flex:none}
+nav button{flex:1;height:50px;border:0;border-radius:16px;background:var(--btn);color:var(--dim);font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:7px;touch-action:manipulation;transition:background .1s,color .1s}
+nav button.on{background:var(--btn-on);color:var(--fg)}
+nav button:active{background:var(--btn-hi)}
+
+#toast{position:absolute;left:50%;top:calc(var(--safe-t) + 50px);transform:translateX(-50%);background:#2b3039;color:var(--fg);padding:8px 14px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:86%;text-align:center;z-index:9}
+#toast.show{opacity:1}
+#toast.bad{background:#5a2626}
+/* 屏幕镜像 */
+.hbtns{display:flex;gap:8px}
+canvas.view{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;display:none}
+body.screen-on canvas.view.on{display:block}
+body.screen-on #hint,body.screen-on #legend{display:none}
+body.screen-on #pad{background:#000}
+#fps{position:absolute;top:8px;left:10px;font-size:10.5px;color:rgba(255,255,255,.45);pointer-events:none;display:none}
+body.screen-on #fps{display:block}
+#scrClose{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(30,32,38,.75);color:#ddd;display:none;align-items:center;justify-content:center;padding:0}
+/* 看屏幕时的横屏布局：左边大画面，右边一列按钮 */
+#side{display:none}
+body.land #app{flex-direction:row;gap:8px;padding:8px calc(env(safe-area-inset-right,0px) + 8px) 8px calc(env(safe-area-inset-left,0px) + 8px)}
+body.land header,body.land nav,body.land #mouse{display:none}
+body.land #surface{min-height:0;border-radius:16px}
+body.land #side{display:flex;flex-direction:column;gap:8px;width:68px;flex:none}
+.sbtn{flex:1;min-height:0;border:0;border-radius:14px;background:var(--btn);color:var(--dim);font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;touch-action:none}
+.sbtn.big{flex:1.5}
+.sbtn.on,.sbtn:active{background:var(--btn-on);color:var(--fg)}
+/* 横屏时快捷 / 设置面板浮在画面上 */
+body.land .sheet.open{position:absolute;top:8px;bottom:8px;right:84px;width:min(440px,62%);overflow-y:auto;z-index:5;max-height:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+/* 手机竖着拿时，把整个界面转 90°（手机向左横过来看） */
+body.rot #app{position:absolute;top:0;left:0;width:var(--H);height:var(--W);transform-origin:0 0;transform:translateX(var(--W)) rotate(90deg);
+  padding:8px calc(var(--safe-b) + 8px) 8px calc(var(--safe-t) + 8px)}
+#app{position:relative}
+/* 全屏看屏幕（iPad 默认）：画面铺满整屏，按钮收进右下角的半透明小圆点，点一下弹出半透明按钮栏，几秒不碰自动收起 */
+#fab{display:none}
+body.imm #app{padding:env(safe-area-inset-top,0px) 0 0 0;gap:0;flex-direction:row}
+body.imm header,body.imm nav,body.imm #mouse{display:none}
+body.imm #surface{border:0;border-radius:0;min-height:0}
+body.imm #side{display:flex;flex-direction:column;gap:8px;position:absolute;z-index:6;right:calc(env(safe-area-inset-right,0px) + 14px);top:calc(50% + env(safe-area-inset-top,0px) / 2);
+  width:76px;height:min(620px,calc(100% - 130px));padding:8px;border-radius:22px;background:rgba(20,21,25,.5);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transform:translateY(-50%);transition:opacity .2s,transform .2s}
+body.imm:not(.sideOpen) #side{opacity:0;pointer-events:none;transform:translate(24px,-50%)}
+body.imm .sbtn{background:rgba(255,255,255,.08);color:#e6e8ec}
+body.imm .sbtn.on,body.imm .sbtn:active{background:rgba(76,141,255,.45);color:#fff}
+body.imm #fab{display:flex;position:absolute;z-index:7;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(var(--safe-b) + 16px);
+  width:48px;height:48px;border-radius:50%;border:0;padding:0;align-items:center;justify-content:center;color:#fff;
+  background:rgba(20,21,25,.45);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);opacity:.55;touch-action:none;transition:opacity .2s}
+body.imm.sideOpen #fab{opacity:.95}
+body.imm .sheet.open{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);bottom:12px;right:104px;width:min(440px,62%);overflow-y:auto;z-index:8;max-height:none;
+  background:rgba(24,25,29,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 8px 30px rgba(0,0,0,.5)}
+body.imm #fps{top:10px;left:12px}
+/* Pencil 手写板：用 iPad 自带的随手写（Scribble）把字写进来，实时打到 Mac 上 */
+#hw{display:none;position:absolute;inset:calc(env(safe-area-inset-top,0px) + 10px) 14px 14px;z-index:9;flex-direction:column;border-radius:22px;overflow:hidden;
+  background:rgba(10,11,13,.5);box-shadow:0 0 0 2px rgba(76,141,255,.75),0 10px 40px rgba(0,0,0,.45)}
+#hw.open{display:flex}
+.hwbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,21,25,.82);flex:none}
+.hwbar .t{flex:1;min-width:0;color:#cfd3da;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hwbar button{height:40px;min-width:58px;border:0;border-radius:12px;background:rgba(255,255,255,.13);color:#fff;font-size:15px;padding:0 14px;touch-action:manipulation}
+.hwbar button:active{background:rgba(255,255,255,.25)}
+.hwbar button.pri{background:var(--acc)}
+#hwText{flex:1;width:100%;border:0;outline:none;resize:none;background:transparent;color:#fff;font-size:42px;line-height:1.35;
+  padding:18px 24px;-webkit-user-select:text;user-select:text;caret-color:var(--acc);text-shadow:0 1px 6px rgba(0,0,0,.6)}
+#hwText::placeholder{color:rgba(255,255,255,.45);font-size:24px}
+#sHw{display:none} body.ipad #sHw{display:flex}
+#hap{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M6.5 13h.01M17 13h.01M10 13h3.5M8 15.5h8"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 20.5h7M12 17v3.5"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></symbol>
+</svg>
+<div id="app">
+  <header>
+    <div class="conn"><span id="dot"></span><span id="status">连接中…</span></div>
+    <div class="hbtns">
+      <button id="btnScreen" class="iconbtn" aria-label="显示 Mac 屏幕"><svg class="i"><use href="#i-screen"/></svg></button>
+      <button id="btnSettings" class="iconbtn" aria-label="设置"><svg class="i"><use href="#i-sliders"/></svg></button>
+    </div>
+  </header>
+
+  <div id="surface">
+    <div id="pad">
+      <canvas id="screen" class="view on" width="0" height="0"></canvas>
+      <canvas id="screenGL" class="view" width="0" height="0"></canvas>
+      <div id="fps"></div>
+      <button id="scrClose" aria-label="关闭屏幕"><svg class="i"><use href="#i-x"/></svg></button>
+      <div id="hint">单指移动 · 轻点＝左键 · 连点＝双击<br>双指轻点＝右键 · 双指滑动＝滚动 · 捏合＝缩放<br>三指拖动＝按住左键拖 · 三指轻点＝中键<br>四指左右＝切换桌面 · 上滑＝调度中心<span class="penhint">Apple Pencil：直接点、拖动、写字</span></div>
+      <div id="legend">双指滚动 · 双指轻点右键 · 三指拖动</div>
+      <div id="badge"></div>
+    </div>
+    <div id="mouse">
+      <button id="btnLeft" aria-label="左键（按住可拖动）">左键</button>
+      <button id="btnRight" aria-label="右键">右键</button>
+    </div>
+  </div>
+
+  <!-- 横屏看屏幕时的按钮列 -->
+  <div id="side">
+    <button class="sbtn" id="sMode" aria-label="切换触摸屏 / 触控板">触控板</button>
+    <button class="sbtn big" id="sLeft">左键</button>
+    <button class="sbtn big" id="sRight">右键</button>
+    <button class="sbtn" id="sKb" aria-label="键盘"><svg class="i"><use href="#i-kbd"/></svg></button>
+    <button class="sbtn" id="sVoice" aria-label="语音"><svg class="i"><use href="#i-mic"/></svg></button>
+    <button class="sbtn" id="sKeys" aria-label="快捷"><svg class="i"><use href="#i-cmd"/></svg></button>
+    <button class="sbtn" id="sHw" aria-label="手写">✍️</button>
+    <button class="sbtn" id="sSet" aria-label="设置"><svg class="i"><use href="#i-sliders"/></svg></button>
+    <button class="sbtn" id="sExit" aria-label="关闭屏幕"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <!-- Pencil 手写板 -->
+  <div id="hw">
+    <div class="hwbar">
+      <span class="t">✍️ 用 Apple Pencil 直接写，自动输入到 Mac · 划掉可删除 · 手指点一下关闭</span>
+      <button data-hw="del">⌫</button>
+      <button data-hw="space">空格</button>
+      <button data-hw="enter">⏎</button>
+      <button data-hw="done" class="pri">完成</button>
+    </div>
+    <textarea id="hwText" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="在这里用 Pencil 写字……"></textarea>
+  </div>
+  <!-- 全屏看屏幕时的小圆点：点一下弹出 / 收起按钮栏 -->
+  <button id="fab" aria-label="显示按钮"><svg class="i"><use href="#i-grid"/></svg></button>
+
+  <!-- 键盘 / 语音 -->
+  <div class="sheet" id="sheetKb">
+    <div class="seg" id="kbMode">
+      <button data-m="live">实时输入</button>
+      <button data-m="text" class="on">整段发送</button>
+      <button data-m="cmd">语音指令</button>
+    </div>
+    <textarea id="ta" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="用 iPhone 输入法打字，或点键盘上的 🎤 听写"></textarea>
+    <div class="row" id="sendRow">
+      <button class="k" id="btnClear">清空</button>
+      <button class="k" id="btnSendEnter">发送+回车</button>
+      <button class="k pri" id="btnSend">发送</button>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <button class="k" data-key="esc">esc</button>
+      <button class="k" data-key="tab">⇥</button>
+      <button class="k" data-key="delete" data-repeat>⌫</button>
+      <button class="k" data-key="return">⏎</button>
+      <button class="k" data-key="left" data-repeat>←</button>
+      <button class="k" data-key="up" data-repeat>↑</button>
+      <button class="k" data-key="down" data-repeat>↓</button>
+      <button class="k" data-key="right" data-repeat>→</button>
+      <button class="k" data-key="cmd+a">⌘A</button>
+      <button class="k" data-key="cmd+c">⌘C</button>
+      <button class="k" data-key="cmd+v">⌘V</button>
+      <button class="k" data-key="cmd+z">⌘Z</button>
+      <button class="k" data-key="space">空格</button>
+      <button class="k" data-key="ctrl+space">切输入法</button>
+      <button class="k" data-key="cmd+space">聚焦</button>
+      <button class="k" id="btnKbHide">收起</button>
+    </div>
+    <div class="note" id="kbNote"></div>
+  </div>
+
+  <!-- 快捷键 -->
+  <div class="sheet" id="sheetKeys">
+    <div class="grid">
+      <button class="k" data-act="mission">调度中心</button>
+      <button class="k" data-key="ctrl+down">应用窗口</button>
+      <button class="k" data-key="ctrl+left">◀ 桌面</button>
+      <button class="k" data-key="ctrl+right">桌面 ▶</button>
+      <button class="k" data-key="cmd+tab">切换应用</button>
+      <button class="k" data-key="f11">显示桌面</button>
+      <button class="k" data-key="ctrl+cmd+f">全屏</button>
+      <button class="k" data-key="cmd+w">关窗口</button>
+      <button class="k" data-key="cmd+t">新标签</button>
+      <button class="k" data-key="cmd+r">刷新</button>
+      <button class="k" data-key="cmd+[">后退</button>
+      <button class="k" data-key="cmd+]">前进</button>
+      <button class="k" data-key="cmd+=">放大</button>
+      <button class="k" data-key="cmd+-">缩小</button>
+      <button class="k" data-key="cmd+shift+4">截图</button>
+      <button class="k" data-key="cmd+q">退出 App</button>
+      <button class="k" data-cmd="上一首">⏮</button>
+      <button class="k" data-cmd="播放">⏯</button>
+      <button class="k" data-cmd="下一首">⏭</button>
+      <button class="k" data-cmd="静音">静音</button>
+      <button class="k" data-cmd="小声">音量 −</button>
+      <button class="k" data-cmd="大声">音量 ＋</button>
+      <button class="k" data-cmd="调暗">亮度 −</button>
+      <button class="k" data-cmd="调亮">亮度 ＋</button>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div class="sheet" id="settings">
+    <label>指针速度 <input type="range" id="sSpeed" min="0.6" max="5" step="0.1"></label>
+    <label>滚动速度 <input type="range" id="sScroll" min="0.4" max="4" step="0.1"></label>
+    <label>自然滚动 <input type="checkbox" id="sNatural"></label>
+    <label>滚动惯性 <input type="checkbox" id="sInertia"></label>
+    <label>用剪贴板粘贴文字 <input type="checkbox" id="sPaste"></label>
+    <label>轻点震动反馈 <input type="checkbox" id="sHaptic"></label>
+    <label>看屏幕时点哪点哪 <input type="checkbox" id="sTapAt"></label>
+    <label>看屏幕时自动横屏 <input type="checkbox" id="sAutoLand"></label>
+    <div class="opt">看屏幕时的操作方式 <span class="seg" id="segMode"><button data-v="pad">触控板</button><button data-v="touch">触摸屏</button></span></div>
+    <label>看屏幕时全屏（按钮收进小圆点） <input type="checkbox" id="sImm"></label>
+    <label>全屏时 Mac 改用本机屏幕比例（铺满不留黑边） <input type="checkbox" id="sFit"></label>
+    <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
+    <label>视频模式（更流畅、更省流量） <input type="checkbox" id="sVideo"></label>
+    <div class="note" id="videoNote" style="margin:0 0 6px"></div>
+    <label>屏幕帧率 <span id="fpsVal" style="color:var(--dim);font-size:13px;min-width:44px;text-align:right"></span><input type="range" id="sFps" min="10" max="60" step="5"></label>
+    <label>Token <input type="text" id="sToken" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <div class="note">在 Safari 里点「分享 → 添加到主屏幕」，之后像 App 一样全屏打开。若某些 App 收不到文字，打开「用剪贴板粘贴文字」。</div>
+  </div>
+
+  <nav>
+    <button id="btnKb"><svg class="i"><use href="#i-kbd"/></svg>键盘</button>
+    <button id="btnVoice"><svg class="i"><use href="#i-mic"/></svg>语音</button>
+    <button id="btnKeys"><svg class="i"><use href="#i-cmd"/></svg>快捷</button>
+  </nav>
+  <div id="toast"></div>
+</div>
+<label id="hap"><input type="checkbox" switch></label>
+<div id="safeProbe" style="position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---------- 设置 ----------
+const DEF = {speed: 2.2, scroll: 1.6, natural: true, inertia: true, paste: false, haptic: true, tapAt: true, fps: 30, autoLand: true, video: true};
+let S = Object.assign({}, DEF);
+try { Object.assign(S, JSON.parse(localStorage.getItem('wb.settings') || '{}')); } catch (e) {}
+if (S.fpsV !== 2) { S.fps = 30; S.fpsV = 2; }   // 帧率上限提到 60 后，旧的默认值 12 换成 30
+if (S.vMaxV !== 2) { delete S.vMaxW; S.vMaxV = 2; }   // 视频最高分辨率提到 2880 后，之前降下来的档位重新试一次
+const saveS = () => { try { localStorage.setItem('wb.settings', JSON.stringify(S)); } catch (e) {} };
+
+let TOKEN = new URLSearchParams(location.search).get('token') || '';
+try {
+  if (TOKEN) localStorage.setItem('wb.token', TOKEN);
+  else TOKEN = localStorage.getItem('wb.token') || '';
+} catch (e) {}
+
+// ---------- 设备 ----------
+const IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !/iPhone|Android/.test(navigator.userAgent));
+if (IPAD) document.body.classList.add('ipad');
+if (S.immersive === undefined) S.immersive = IPAD;   // iPad 默认全屏看屏幕
+if (S.fitMac === undefined) S.fitMac = IPAD;         // iPad 默认让 Mac 适配 iPad 的屏幕比例
+if (S.scribble === undefined) S.scribble = true;
+if (S.touchMode === undefined) S.touchMode = IPAD ? 'touch' : 'pad';   // 看屏幕时：触摸屏（点哪操作哪）/ 触控板
+if (navigator.standalone || matchMedia('(display-mode: standalone)').matches) document.body.classList.add('standalone');
+
+// ---------- 提示 / 震动 ----------
+let toastTimer;
+function toast(msg, bad) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = '', 1800);
+}
+// iOS 18+ Safari：点一下 switch 开关的 label 会产生轻微触感，网页没有别的震动接口
+function haptic() { if (S.haptic) try { $('#hap').click(); } catch (e) {} }
+
+// ---------- 连接 ----------
+let pageVer = null;
+let kbIsUp = false;   // iPhone / iPad 屏幕键盘弹出来了   // 网页版本（Mac 发来的 remote.html 指纹），变了就自动刷新
+let ws = null, retry = 0, fatal = false, pingId = 0, pingSent = {}, latency = null;
+function setStatus(state, text) { $('#dot').className = state; $('#status').textContent = text; }
+function connect() {
+  if (fatal || (ws && ws.readyState < 2)) return;
+  if (!TOKEN) { setStatus('', '缺少 token，请在设置里填写'); openSheet('settings'); return; }
+  setStatus('wait', '连接中…');
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(TOKEN)}`);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => { retry = 0; setStatus('ok', '已连接 ' + location.hostname); ping(); if (screenOn) subscribeScreen(); };
+  ws.onmessage = ev => {
+    if (typeof ev.data !== 'string') { onScreenData(ev.data); return; }   // 二进制 = 屏幕画面
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.t === 'screen') { if (!m.ok) { toast(m.text, true); setScreen(false); } else codec = m.codec || 'jpeg'; return; }
+    if (m.t === 'hello' && m.page) {
+      if (pageVer && pageVer !== m.page) { location.reload(); return; }
+      pageVer = m.page;
+    }
+    if (m.t === 'hello') { if (m.https && location.protocol === 'http:') probeHttps(m.https); else reportClient(); return; }
+    if (m.t === 'pong') {
+      const t0 = pingSent[m.id]; delete pingSent[m.id];
+      if (t0) { latency = Math.round(performance.now() - t0); setStatus('ok', `已连接 ${location.hostname} · ${latency}ms`); }
+    } else if (m.t === 'screenInfo') {
+      scrInfo = {w: m.w || 0, h: m.h || 0};
+    } else if (m.t === 'fit') {
+      if (!m.ok) toast('Mac 没能改成这块屏幕的比例，先按原比例显示', true);
+    } else if (m.t === 'textFocus') {
+      if (m.id === penTapId && m.editable && S.scribble) hwOpen();
+    } else if (m.t === 'reply') {
+      toast(m.text, !m.ok);
+    } else if (m.t === 'error') {
+      fatal = true; setStatus('', m.text); toast(m.text, true); openSheet('settings');
+    }
+  };
+  ws.onclose = () => {
+    ws = null;
+    if (fatal) return;
+    if (document.visibilityState !== 'visible') { setStatus('', '已断开'); return; }   // 在后台不重连，回到前台再连
+    setStatus('', '已断开，重连中…');
+    setTimeout(connect, Math.min(3000, 300 * 2 ** retry++));
+  };
+}
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function ping() { const id = ++pingId; pingSent[id] = performance.now(); send({t: 'ping', id}); }
+setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 3000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { connect(); if (screenOn) subscribeScreen(); }
+  else { releaseAll(); if (screenOn) send({t: 'screen', on: false}); }
+});
+
+// ---------- 触控板 ----------
+const pad = $('#pad'), badge = $('#badge');
+// 轻点允许的抖动：按每根手指离自己起点最远的距离算（不是走过的总路程——iPad 触屏采样快，微小抖动会越积越多）
+const TAP_SLOP = IPAD ? 14 : 10, TAP_MS = 320, MULTI_TAP_MS = 450, HOLD_MS = 450;
+let g = null;                     // 当前手势
+const pend = {mx: 0, my: 0, sx: 0, sy: 0};
+let rafOn = false;
+
+// 第一次用时显示完整手势说明，摸过一次之后换成底部一行小字
+function hideHint() { $('#hint').style.opacity = '0'; $('#legend').style.opacity = '1'; }
+function showBadge(txt) { badge.textContent = txt; badge.className = txt ? 'show' : ''; }
+
+function schedule() { if (!rafOn) { rafOn = true; requestAnimationFrame(flush); } }
+function flush() {
+  rafOn = false;
+  if (pend.mx || pend.my) { send({t: 'move', dx: +pend.mx.toFixed(2), dy: +pend.my.toFixed(2)}); pend.mx = pend.my = 0; }
+  if (pend.sx || pend.sy) { send({t: 'scroll', dx: +pend.sx.toFixed(2), dy: +pend.sy.toFixed(2), p: 2, m: 0}); pend.sx = pend.sy = 0; }
+}
+
+// 指针加速：慢速精确、快速移动距离大
+function queueMove(dx, dy, dt) {
+  const v = Math.hypot(dx, dy) / dt;            // CSS px / ms
+  const gain = S.speed * clamp(0.45 + v * 1.1, 0.45, 4);
+  pend.mx += dx * gain; pend.my += dy * gain; flush();
+}
+
+// 滚动：k 是倍率（触控板 = 设置里的滚动速度；触摸屏 = 画面和 Mac 的比例，内容正好跟着手指走）
+function queueScroll(dx, dy, now, k) {
+  const sx = dx * k, sy = dy * k;
+  if (!g.scrollBegan) { g.scrollBegan = true; send({t: 'scroll', dx: 0, dy: 0, p: 1, m: 0}); }
+  pend.sx += sx; pend.sy += sy; schedule();
+  g.vel.push({t: now, x: sx, y: sy});
+  while (g.vel.length && now - g.vel[0].t > 90) g.vel.shift();
+}
+// 结束滚动，按松手前的速度惯性滚
+function endScroll() {
+  flush();
+  send({t: 'scroll', dx: 0, dy: 0, p: 4, m: 0});
+  g.scrollBegan = false;
+  const v = g.vel, now = performance.now();
+  if (v.length >= 2 && now - v[v.length - 1].t < 60) {
+    const span = Math.max(16, v[v.length - 1].t - v[0].t);
+    let x = 0, y = 0; for (const s of v) { x += s.x; y += s.y; }
+    startMomentum(x / span, y / span);
+  }
+}
+
+// 惯性滚动：手指离开后按速度衰减继续发 momentum 事件
+let mom = null;
+function startMomentum(vx, vy) {
+  if (!S.inertia || Math.hypot(vx, vy) < 0.25) return;
+  mom = {vx, vy, t: performance.now(), started: false};
+  const step = now => {
+    if (!mom) return;
+    const dt = Math.min(48, now - mom.t); mom.t = now;
+    const decay = Math.pow(0.95, dt / 16.7);
+    mom.vx *= decay; mom.vy *= decay;
+    if (Math.hypot(mom.vx, mom.vy) < 0.03) { stopMomentum(); return; }
+    send({t: 'scroll', dx: +(mom.vx * dt).toFixed(2), dy: +(mom.vy * dt).toFixed(2), p: 0, m: mom.started ? 2 : 1});
+    mom.started = true;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function stopMomentum() {
+  if (!mom) return;
+  if (mom.started) send({t: 'scroll', dx: 0, dy: 0, p: 0, m: 3});
+  mom = null;
+}
+
+const RANK = {move: 1, scroll: 2, drag: 3, swipe: 4};
+function modeFor(n) { return n >= 4 ? 'swipe' : n === 3 ? 'drag' : n === 2 ? 'scroll' : 'move'; }
+function setMode(m) {
+  if (g.scrollBegan) { flush(); send({t: 'scroll', dx: 0, dy: 0, p: 4, m: 0}); g.scrollBegan = false; }
+  g.mode = m; g.modeTravel = 0; g.sub = null;
+  showBadge({drag: '拖动中', swipe: '四指'}[m] || '');
+}
+function centroid(list) { let x = 0, y = 0; for (const t of list) { x += t.clientX; y += t.clientY; } return {x: x / list.length, y: y / list.length}; }
+// 手势中途被打断（落笔、切到后台）：别让 Mac 上的鼠标键 / 滚动停在半路
+function abortGesture() {
+  if (!g) return;
+  clearHold();
+  if (g.down || g.absDown) send({t: 'up', b: 'left'});
+  if (g.scrollBegan) { flush(); send({t: 'scroll', dx: 0, dy: 0, p: 4, m: 0}); }
+  g = null;
+  showBadge(''); pad.classList.remove('active', 'drag');
+}
+
+// ---------- Apple Pencil：笔尖直接点、拖、写字；手指照旧当触控板 ----------
+let pen = null, penSeen = false;
+const stylusIn = list => { for (const t of list) if (t.touchType === 'stylus') return t; return null; };
+function penStart(t) {
+  abortGesture();
+  stopMomentum();
+  penSeen = true;
+  const p = penPoint(t, false);
+  pen = {id: t.identifier, live: !!p, t0: performance.now(), x0: t.clientX, y0: t.clientY, far: false};
+  if (p) { send({t: 'pen', p: 0, x: p.x, y: p.y}); pad.classList.add('active'); }
+  hideHint();
+}
+function penMove(t) {
+  if (!pen.live) return;
+  if (Math.hypot(t.clientX - pen.x0, t.clientY - pen.y0) > 10) pen.far = true;
+  const p = penPoint(t, true); send({t: 'pen', p: 1, x: p.x, y: p.y});
+}
+let penTapId = 0;
+function penEnd(t) {
+  if (pen.live) {
+    const p = penPoint(t, true), msg = {t: 'pen', p: 2, x: p.x, y: p.y};
+    // 轻点（没怎么动、很快抬笔）：Mac 点完会看看点到的是不是输入框
+    if (!pen.far && performance.now() - pen.t0 < 400) { msg.tap = true; msg.id = ++penTapId; }
+    send(msg);
+  }
+  pen = null; pad.classList.remove('active');
+}
+const penTouch = e => pen && [...e.changedTouches].find(t => t.identifier === pen.id);
+
+// ---------- 触摸屏模式：看屏幕时手指直接操作画面上的东西（像用 iPad 一样）----------
+// 点一下 = 点那里；连点 = 双击；滑动 = 滚动（内容跟着手指走）；长按 = 右键，长按后拖 = 按住拖；
+// 双指：滑动滚动、轻点右键、捏合缩放；三指：拖动 / 轻点中键；四指：切换桌面、调度中心
+const touchMode = () => screenOn && S.touchMode === 'touch' && view.width > 0;
+let scrInfo = {w: 0, h: 0};      // Mac 屏幕的点数（Mac 开始截屏时发来）
+// 手指在画面上走 1 个 CSS 像素，相当于 Mac 上走几个点
+function macPerPx() {
+  if (!view.width) return 1;
+  const k = Math.min(pad.clientWidth / view.width, pad.clientHeight / view.height);
+  return (scrInfo.w || view.width / 2) / (view.width * k);
+}
+// 连点两下：第二下用第一下的位置，Mac 才认成双击（手指每次落点会差一点）
+let lastTap = null;
+function tapPoint(cx, cy) {
+  const p = screenPoint(cx, cy, false);
+  if (!p) return null;
+  const now = performance.now();
+  // 范围要小：连着点相邻的两个小图标（比如程序坞）时不能被当成双击
+  if (lastTap && now - lastTap.t < 400 && Math.hypot(cx - lastTap.cx, cy - lastTap.cy) < 16) { lastTap.t = now; return lastTap.p; }
+  lastTap = {t: now, cx, cy, p};
+  return p;
+}
+function armHold() {
+  clearHold();
+  g.holdT = setTimeout(() => {
+    if (!g || g.mode || g.n !== 1 || g.disp >= TAP_SLOP) return;
+    const f = [...g.f.values()][0];
+    const p = f && screenPoint(f.x0, f.y0, false);
+    if (!p) return;
+    g.held = true; g.anchor = p;
+    haptic(); showBadge('松手 = 右键 · 拖动 = 按住拖');
+  }, HOLD_MS);
+}
+function clearHold() { if (g && g.holdT) { clearTimeout(g.holdT); g.holdT = null; } }
+
+function newGesture(now) {
+  return {start: now, last: now, max: 0, n: 0, f: new Map(), disp: 0, mode: null, sub: null, modeTravel: 0,
+          vel: [], scrollBegan: false, down: false, absDown: false, abs: null, sx: 0, sy: 0, zoom: 0, multi: null,
+          touch: touchMode(), holdT: null, held: false, anchor: null, aimed: false};
+}
+// 多指阶段从这里开始算（分辨滚动 / 捏合、多指轻点的位置都用它）
+function beginMulti(list) {
+  const m = {p: new Map(), d0: 0, dPrev: 0};
+  for (const t of list) m.p.set(t.identifier, {x: t.clientX, y: t.clientY});
+  if (list.length >= 2) m.d0 = m.dPrev = Math.hypot(list[0].clientX - list[1].clientX, list[0].clientY - list[1].clientY);
+  const c = centroid(list); m.cx = c.x; m.cy = c.y;
+  g.multi = m;
+  if (!(g.touch && g.sub === 'pan' && g.scrollBegan)) g.sub = null;
+}
+
+pad.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const st = stylusIn(e.changedTouches);
+  if (st && !pen) { penStart(st); return; }
+  if (pen) return;                  // 用笔时手掌碰到屏幕不算
+  stopMomentum();
+  const now = performance.now();
+  if (!g) g = newGesture(now);
+  for (const t of e.changedTouches) {
+    if (t.touchType === 'stylus') continue;
+    g.f.set(t.identifier, {x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY});
+    if (g.x0 == null) { g.x0 = t.clientX; g.y0 = t.clientY; }
+  }
+  const list = [...e.targetTouches].filter(t => g.f.has(t.identifier));
+  g.n = list.length;
+  g.max = Math.max(g.max, g.n);
+  if (g.n >= 2) { clearHold(); beginMulti(list); }
+  else if (g.touch && !g.mode && !g.held) armHold();
+  pad.classList.add('active');
+}, {passive: false});
+
+pad.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (pen) { const t = penTouch(e); if (t) penMove(t); return; }
+  if (!g) return;
+  const now = performance.now();
+  const cur = [...e.targetTouches].filter(t => g.f.has(t.identifier));
+  if (!cur.length) return;
+  let dx = 0, dy = 0;
+  for (const t of cur) {
+    const p = g.f.get(t.identifier);
+    dx += t.clientX - p.x; dy += t.clientY - p.y;
+    p.x = t.clientX; p.y = t.clientY;
+    g.disp = Math.max(g.disp, Math.hypot(p.x - p.x0, p.y - p.y0));
+  }
+  dx /= cur.length; dy /= cur.length;
+  if (rotated) [dx, dy] = [dy, -dx];   // 界面转了 90°：手指方向换算回界面里的方向
+  const dt = Math.max(4, now - g.last); g.last = now;
+  if (g.touch) touchMove(cur, dx, dy, dt, now); else padMove(cur, dx, dy, dt, now);
+}, {passive: false});
+
+// 触控板模式
+function padMove(cur, dx, dy, dt, now) {
+  const want = modeFor(cur.length);
+  if (!g.mode) { if (g.disp < 3) return; setMode(want); }
+  else if (RANK[want] > RANK[g.mode] && g.modeTravel < 30) setMode(want); // 手指没同时落下时升级手势
+  g.modeTravel += Math.hypot(dx, dy);
+  switch (g.mode) {
+    case 'move':
+      if (cur.length === 1) queueMove(dx, dy, dt);
+      break;
+    case 'scroll':
+      twoFinger(cur, dx, dy, now, S.scroll * (S.natural ? 1 : -1));
+      break;
+    case 'drag':
+      if (!g.down) { g.down = true; send({t: 'down', b: 'left'}); pad.classList.add('drag'); haptic(); }
+      queueMove(dx, dy, dt);
+      break;
+    case 'swipe':
+      g.sx += dx; g.sy += dy;
+      break;
+  }
+}
+
+// 两指：看两根手指往哪走——同方向是滚动，反方向（指间距明显在变）是捏合。
+// 判断要等手指走出轻点的范围，判断前走过的那段也补上，所以开头不会「没反应」
+function twoFinger(cur, dx, dy, now, k) {
+  const m = g.multi;
+  if (cur.length !== 2 || !m) return;
+  const [a, b] = cur, pa = m.p.get(a.identifier), pb = m.p.get(b.identifier);
+  if (!pa || !pb) return;
+  const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  if (!g.sub) {
+    const ax = a.clientX - pa.x, ay = a.clientY - pa.y, bx = b.clientX - pb.x, by = b.clientY - pb.y;
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (Math.max(la, lb) < TAP_SLOP) return;            // 还在轻点的范围里
+    const dd = dist - m.d0, pan = Math.hypot((ax + bx) / 2, (ay + by) / 2);
+    const cos = la > 3 && lb > 3 ? (ax * bx + ay * by) / (la * lb) : 0;
+    const pinch = (cos < -0.3 && Math.abs(dd) > 10) || (cos < 0.5 && Math.abs(dd) > 2 * pan && Math.abs(dd) > 18);
+    g.sub = pinch ? 'pinch' : 'pan';
+    m.dPrev = dist;
+    if (pinch) { showBadge('缩放'); g.zoom = dd; }
+    else { let cx = (ax + bx) / 2, cy = (ay + by) / 2; if (rotated) [cx, cy] = [cy, -cx]; queueScroll(cx, cy, now, k); }
+    return;
+  }
+  if (g.sub === 'pan') queueScroll(dx, dy, now, k);
+  else {
+    g.zoom += dist - m.dPrev; m.dPrev = dist;
+    while (g.zoom > 45) { send({t: 'key', key: 'cmd+='}); g.zoom -= 45; haptic(); }
+    while (g.zoom < -45) { send({t: 'key', key: 'cmd+-'}); g.zoom += 45; haptic(); }
+  }
+}
+
+// 触摸屏模式
+function touchMove(cur, dx, dy, dt, now) {
+  if (g.held) {                       // 长按之后拖动 = 在按住的位置按下鼠标，跟着手指拖
+    const t = cur[0], p = screenPoint(t.clientX, t.clientY, true);
+    if (!p) return;
+    if (!g.absDown) {
+      if (g.disp < TAP_SLOP) return;
+      g.absDown = true; send({t: 'pen', p: 0, x: g.anchor.x, y: g.anchor.y});
+      pad.classList.add('drag'); showBadge('拖动中');
+    }
+    send({t: 'pen', p: 1, x: p.x, y: p.y}); g.abs = p;
+    return;
+  }
+  const want = modeFor(cur.length);
+  if (!g.mode) {
+    if (g.disp < TAP_SLOP) return;    // 还在轻点 / 长按的范围里
+    clearHold();
+    startTouch(want, cur, now);
+    return;                           // 起手这一段已经在 startTouch 里补上了
+  }
+  // 单指滚着又放下一根手指：还是滚动，接着滚（不用重新判断）；三指、四指照常升级
+  if (RANK[want] > RANK[g.mode] && g.modeTravel < 40 && !(g.mode === 'move' && want === 'scroll')) { startTouch(want, cur, now); return; }
+  g.modeTravel += Math.hypot(dx, dy);
+  switch (g.mode) {
+    case 'move':                      // 单指（或中途加一指）滑动 = 滚动
+      if (cur.length <= 2) queueScroll(dx, dy, now, macPerPx());
+      break;
+    case 'scroll':
+      twoFinger(cur, dx, dy, now, macPerPx());
+      break;
+    case 'drag': {                    // 三指拖动：在手指的位置按住拖
+      const c = centroid(cur), p = screenPoint(c.x, c.y, true);
+      if (p) { send({t: 'pen', p: 1, x: p.x, y: p.y}); g.abs = p; }
+      break;
+    }
+    case 'swipe':
+      g.sx += dx; g.sy += dy;
+      break;
+  }
+}
+function startTouch(m, cur, now) {
+  const scrolling = (g.mode === 'move' || g.mode === 'scroll') && g.scrollBegan;
+  if (g.scrollBegan && !(m === 'scroll' && scrolling)) { flush(); send({t: 'scroll', dx: 0, dy: 0, p: 4, m: 0}); g.scrollBegan = false; }
+  g.mode = m; g.modeTravel = 0;
+  g.sub = m === 'scroll' && scrolling ? 'pan' : null;   // 单指滚着又放下一根：接着滚
+  showBadge({drag: '拖动中', swipe: '四指'}[m] || '');
+  if (m === 'move' || m === 'scroll') {
+    // 先把光标移到手指下面：滚动的才是手指按着的那块内容
+    if (!g.aimed) {
+      const fs = [...g.f.values()], c = {x: 0, y: 0};
+      for (const f of fs) { c.x += f.x0 / fs.length; c.y += f.y0 / fs.length; }
+      const p = screenPoint(c.x, c.y, true);
+      if (p) send({t: 'moveTo', x: p.x, y: p.y});
+      g.aimed = true;
+    }
+    if (m === 'move') {
+      const f = g.f.get(cur[0].identifier);
+      let ix = f.x - f.x0, iy = f.y - f.y0;
+      if (rotated) [ix, iy] = [iy, -ix];
+      queueScroll(ix, iy, now, macPerPx());
+    }
+  } else if (m === 'drag') {
+    const c = centroid(cur), p = screenPoint(c.x, c.y, true);
+    if (p) { g.absDown = true; g.abs = p; send({t: 'pen', p: 0, x: p.x, y: p.y}); pad.classList.add('drag'); haptic(); }
+  }
+}
+
+function endGesture(e) {
+  e.preventDefault();
+  if (pen) { const t = penTouch(e); if (t) penEnd(t); return; }
+  if (!g) return;
+  for (const t of e.changedTouches) g.f.delete(t.identifier);
+  const left = [...e.targetTouches].filter(t => g.f.has(t.identifier));
+  if (left.length > 0) {              // 还有手指没抬起
+    g.n = left.length;
+    if (g.n >= 2) beginMulti(left);
+    return;
+  }
+  clearHold();
+  flush();
+  const dur = performance.now() - g.start, cancel = e.type === 'touchcancel';
+  const tap = !cancel && !g.scrollBegan && !g.down && !g.absDown && !g.held && g.sub !== 'pinch'
+              && g.disp < TAP_SLOP && dur < (g.max > 1 ? MULTI_TAP_MS : TAP_MS);
+  if (g.touch) touchEnd(tap, cancel); else padEnd(tap);
+  g = null;
+  pad.classList.remove('active', 'drag');
+  showBadge('');
+  hideHint();
+}
+function padEnd(tap) {
+  if (g.down) send({t: 'up', b: 'left'});
+  else if (tap) {
+    const at = g.max === 1 && screenOn && S.tapAt && !penSeen ? screenPoint(g.x0, g.y0) : null;
+    if (at) send({t: 'clickAt', x: at.x, y: at.y, b: 'left'});    // 看屏幕时：点哪点哪
+    else send({t: 'click', b: g.max >= 3 ? 'middle' : g.max === 2 ? 'right' : 'left'});
+    haptic();
+  } else if (g.scrollBegan) endScroll();
+  else if (g.mode === 'swipe') swipeEnd();
+}
+function touchEnd(tap, cancel) {
+  if (g.absDown) {
+    if (g.abs) send({t: 'pen', p: 2, x: g.abs.x, y: g.abs.y}); else send({t: 'up', b: 'left'});
+  } else if (g.held) {
+    if (!cancel) { send({t: 'clickAt', x: g.anchor.x, y: g.anchor.y, b: 'right'}); haptic(); }   // 长按松手 = 右键
+  } else if (tap) {
+    if (g.max === 1) { const p = tapPoint(g.x0, g.y0); if (p) send({t: 'clickAt', x: p.x, y: p.y, b: 'left'}); }
+    else if (g.multi) {
+      const p = screenPoint(g.multi.cx, g.multi.cy, true);
+      if (p) send({t: 'clickAt', x: p.x, y: p.y, b: g.max >= 3 ? 'middle' : 'right'});
+    }
+    haptic();
+  } else if (g.scrollBegan) endScroll();
+  else if (g.mode === 'swipe') swipeEnd();
+}
+function swipeEnd() {
+  const {sx, sy} = g;
+  if (Math.abs(sx) > Math.abs(sy) && Math.abs(sx) > 50) send({t: 'key', key: sx < 0 ? 'ctrl+right' : 'ctrl+left'});
+  else if (sy < -50) send({t: 'mission'});
+  else if (sy > 50) send({t: 'key', key: 'ctrl+down'});
+  haptic();
+}
+pad.addEventListener('touchend', endGesture, {passive: false});
+pad.addEventListener('touchcancel', endGesture, {passive: false});
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// 离开页面时，别让 Mac 上的鼠标键一直按着
+function releaseAll() {
+  abortGesture();
+  if (leftHeld) { send({t: 'up', b: 'left'}); leftHeld = false; $('#btnLeft').classList.remove('on'); $('#sLeft').classList.remove('on'); }
+  if (pen && pen.live) send({t: 'up', b: 'left'});
+  pen = null;
+  stopMomentum();
+}
+
+// ---------- 底部按钮 ----------
+// 「按住左键」：左手按住，右手在触控板上移动 = 拖动
+let leftHeld = false;
+function bindLeft(bl) {
+  bl.addEventListener('touchstart', e => { e.preventDefault(); leftHeld = true; bl.classList.add('on'); send({t: 'down', b: 'left'}); haptic(); }, {passive: false});
+  const up = e => { e.preventDefault(); bl.classList.remove('on'); if (!leftHeld) return; leftHeld = false; send({t: 'up', b: 'left'}); };
+  bl.addEventListener('touchend', up, {passive: false});
+  bl.addEventListener('touchcancel', up, {passive: false});
+  if (!('ontouchstart' in window)) bl.addEventListener('click', () => send({t: 'click', b: 'left'}));
+}
+function bindRight(br) {
+  br.addEventListener('touchstart', e => { e.preventDefault(); br.classList.add('on'); send({t: 'click', b: 'right'}); haptic(); }, {passive: false});
+  br.addEventListener('touchend', e => { e.preventDefault(); br.classList.remove('on'); }, {passive: false});
+  br.addEventListener('touchcancel', () => br.classList.remove('on'));
+  if (!('ontouchstart' in window)) br.addEventListener('click', () => send({t: 'click', b: 'right'}));
+}
+bindLeft($('#btnLeft')); bindRight($('#btnRight'));
+bindLeft($('#sLeft')); bindRight($('#sRight'));
+
+const sheets = {kb: $('#sheetKb'), keys: $('#sheetKeys'), settings: $('#settings')};
+const navBtn = {kb: $('#btnKb'), keys: $('#btnKeys'), settings: $('#btnSettings')};
+let openName = null;
+function openSheet(name) {
+  openName = name;
+  for (const k in sheets) {
+    sheets[k].classList.toggle('open', k === name);
+    if (navBtn[k]) navBtn[k].classList.toggle('on', k === name);
+  }
+  if (name !== 'kb') ta.blur();
+  updateLayout();
+}
+const lastToggle = {};
+function debounced(name) { const now = Date.now(); if (now - (lastToggle[name] || 0) < 350) return true; lastToggle[name] = now; return false; }
+function toggleSheet(name) { if (!debounced(name)) openSheet(openName === name ? null : name); }
+$('#btnKeys').addEventListener('click', () => toggleSheet('keys'));
+$('#btnSettings').addEventListener('click', () => toggleSheet('settings'));
+$('#btnKb').addEventListener('click', () => {
+  if (debounced('kb')) return;
+  if (openName === 'kb') { openSheet(null); return; }
+  openSheet('kb'); ta.focus();     // 必须在点击回调里同步 focus，iOS 才会弹键盘
+});
+
+// 快捷键 / 指令按钮；带 data-repeat 的按住会连发
+document.querySelectorAll('[data-key],[data-cmd],[data-act]').forEach(b => {
+  const fire = () => {
+    if (b.dataset.key) send({t: 'key', key: b.dataset.key});
+    else if (b.dataset.cmd) send({t: 'cmd', text: b.dataset.cmd, quiet: true});
+    else if (b.dataset.act === 'mission') send({t: 'mission'});
+  };
+  let timer = null, startT = null;
+  const stop = () => { clearTimeout(startT); clearInterval(timer); timer = startT = null; };
+  b.addEventListener('touchstart', e => {
+    e.preventDefault();            // 不抢走输入框焦点，键盘不收起
+    b.classList.add('on'); fire(); haptic();
+    if (b.hasAttribute('data-repeat')) startT = setTimeout(() => timer = setInterval(fire, 70), 380);
+  }, {passive: false});
+  b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); stop(); }, {passive: false});
+  b.addEventListener('touchcancel', () => { b.classList.remove('on'); stop(); });
+  if (!('ontouchstart' in window)) b.addEventListener('click', fire); // 桌面浏览器调试用
+});
+
+// ---------- 文字输入 ----------
+const ta = $('#ta');
+let kbMode = 'text', composing = false;
+const NOTES = {
+  live: '实时输入：打一个字发一个字，支持中文输入法（选完候选词才发送）。⌫ 和 ⏎ 直接作用在 Mac 上。',
+  text: '整段发送：先在这里写好（可用键盘上的 🎤 听写），再点发送。适合长句和语音输入。',
+  cmd: '语音指令：说「打开微信」「音量调大」「下一首」「截图」等，点发送后在 Mac 上执行。',
+};
+function setKbMode(m) {
+  kbMode = m;
+  document.querySelectorAll('#kbMode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  $('#sendRow').style.display = m === 'live' ? 'none' : '';
+  $('#kbNote').textContent = NOTES[m];
+  ta.placeholder = m === 'live' ? '在这里打字，会实时出现在 Mac 上' : m === 'cmd' ? '例如：打开 Safari' : '用 iPhone 输入法打字，或点键盘上的 🎤 听写';
+  ta.setAttribute('enterkeyhint', m === 'live' ? 'enter' : 'send');
+  if (m === 'live') ta.value = '';
+}
+document.querySelectorAll('#kbMode button').forEach(b => b.addEventListener('click', () => { setKbMode(b.dataset.m); ta.focus(); }));
+setKbMode('text');
+
+function sendText(text) { if (text) send({t: 'text', text, paste: S.paste}); }
+function submit(withEnter) {
+  const v = ta.value.trim() ? ta.value : '';
+  if (!v && !withEnter) return;
+  if (kbMode === 'cmd') send({t: 'cmd', text: v});
+  else { sendText(v); if (withEnter) send({t: 'key', key: 'return'}); }
+  ta.value = '';
+  haptic();
+}
+function liveFlush() { if (kbMode === 'live' && !composing && ta.value) { sendText(ta.value); ta.value = ''; } }
+
+ta.addEventListener('compositionstart', () => composing = true);
+ta.addEventListener('compositionend', () => { composing = false; setTimeout(liveFlush, 0); });
+ta.addEventListener('input', e => { if (!e.isComposing) liveFlush(); });
+ta.addEventListener('keydown', e => {
+  if (e.isComposing || composing || e.keyCode === 229) return;
+  if (kbMode === 'live') {
+    if (e.key === 'Backspace' && !ta.value) { e.preventDefault(); send({t: 'key', key: 'delete'}); }
+    else if (e.key === 'Enter') { e.preventDefault(); send({t: 'key', key: 'return'}); }
+    else if (e.key === 'Tab') { e.preventDefault(); send({t: 'key', key: 'tab'}); }
+  } else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(false); }
+});
+// 输入框为空时部分 iOS 版本不发 keydown，用 beforeinput 兜底退格
+ta.addEventListener('beforeinput', e => {
+  if (kbMode === 'live' && !composing && e.inputType === 'deleteContentBackward' && !ta.value) { e.preventDefault(); send({t: 'key', key: 'delete'}); }
+});
+$('#btnSend').addEventListener('click', () => submit(false));
+$('#btnSendEnter').addEventListener('click', () => submit(true));
+$('#btnClear').addEventListener('click', () => { ta.value = ''; ta.focus(); });
+$('#btnKbHide').addEventListener('click', () => openSheet(null));
+
+// ---------- 语音 ----------
+// 网页语音识别要求 HTTPS，局域网 http 下通常不可用；那就用 iPhone 键盘自带的 🎤 听写（中文效果很好）
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+$('#btnVoice').addEventListener('click', () => {
+  openSheet('kb');
+  if (kbMode === 'live') setKbMode('text');
+  if (SR && window.isSecureContext) {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false;
+    const base = ta.value;
+    rec.onresult = ev => { let s = ''; for (const r of ev.results) s += r[0].transcript; ta.value = base + s; };
+    rec.onend = () => { rec = null; $('#btnVoice').classList.remove('on'); };
+    rec.onerror = ev => toast('语音识别失败：' + ev.error, true);
+    rec.start(); $('#btnVoice').classList.add('on'); toast('请说话…');
+  } else {
+    ta.focus();
+    toast('点键盘右下角的 🎤 开始听写，说完点「发送」');
+  }
+});
+
+// ---------- 屏幕镜像 ----------
+// 两种画面：HTTPS 下用 H.264 视频（Mac 硬件编码 → 手机 WebCodecs 硬件解码，60 帧也流畅、流量小）；
+// 普通 http 网页没有 WebCodecs，就用 JPEG 图片。都走同一条 WebSocket，只在画面变化时才有新帧
+let screenOn = false, frames = 0;
+const scr = $('#screen');
+// 看屏幕时横屏显示：手机真的横过来就直接用横屏布局；竖着拿就把整个界面转 90°。
+// 打字时（键盘面板打开）恢复竖屏，因为 iPhone 的键盘总是按手机实际方向弹出来。
+let rotated = false;
+function updateLayout() {
+  const W = document.body.clientWidth, H = document.body.clientHeight;
+  const landscape = W > H;
+  const land = screenOn && (landscape || (S.autoLand && !IPAD && openName !== 'kb'));
+  rotated = land && !landscape;
+  document.documentElement.style.setProperty('--W', W + 'px');
+  document.documentElement.style.setProperty('--H', H + 'px');
+  document.body.classList.toggle('land', land);
+  document.body.classList.toggle('rot', rotated);
+  const imm = screenOn && S.immersive && (land || IPAD);
+  document.body.classList.toggle('imm', imm);
+  if (!imm) document.body.classList.remove('sideOpen');
+  $('#sKeys').classList.toggle('on', openName === 'keys');
+  $('#sSet').classList.toggle('on', openName === 'settings');
+  if (screenOn) { clearTimeout(rsTimer); rsTimer = setTimeout(subscribeScreen, 300); }
+}
+function captureWidth() {
+  const w = pad.clientWidth, h = pad.clientHeight;
+  return Math.min(VIDEO_OK && S.video ? vMaxW : 1800, Math.round(Math.min(w, h * 1.6) * (window.devicePixelRatio || 2)));
+}
+const VIDEO_OK = window.isSecureContext && typeof VideoDecoder === 'function';
+let codec = 'jpeg';
+function subscribeScreen() {
+  resetVideo();
+  clearTimeout(subscribeScreen.t1); clearTimeout(subscribeScreen.t2);
+  subscribeScreen.t1 = setTimeout(reportVideo, 3000); subscribeScreen.t2 = setTimeout(reportVideo, 8000);
+  const msg = {t: 'screen', on: true, w: captureWidth(), fps: S.fps, ack: true, codec: VIDEO_OK && S.video ? 'h264' : 'jpeg'};
+  const f = fitSize();
+  if (f) msg.fit = f;
+  send(msg);
+}
+// 全屏看屏幕时，请 Mac 改用和这块屏幕一样的比例（点数），画面就能铺满。弹出键盘时屏幕变矮，不算
+let lastFit = null;
+function fitSize() {
+  if (!S.fitMac || !document.body.classList.contains('imm')) return null;
+  if (!kbIsUp) lastFit = {w: Math.round(pad.clientWidth), h: Math.round(pad.clientHeight)};
+  return lastFit;
+}
+function setScreen(on) {
+  screenOn = on;
+  document.body.classList.toggle('screen-on', on);
+  if (!on && openName) openSheet(null);
+  $('#btnScreen').classList.toggle('on', on);
+  if (on) { if (openName) openSheet(null); updateLayout(); subscribeScreen(); }
+  else {
+    send({t: 'screen', on: false});
+    scr.width = 0; scr.height = 0; glView.width = 0; glView.height = 0; nextBlob = null; resetVideo();
+    hwClose();
+    updateLayout();
+  }
+  if (on && document.body.classList.contains('imm')) sideOpen(true);   // 先亮一下按钮栏，让人知道在哪，几秒后自动收起
+  haptic();
+}
+// 收到一帧：后台解码（createImageBitmap）→ 画到 canvas → 回执给 Mac，Mac 收到回执才发下一帧，
+// 所以手机画多快 Mac 就发多快，不会在网络里积压出延迟
+const sctx = scr.getContext('2d');
+let decoding = false, nextBlob = null;
+function onScreenData(buf) {
+  if (!screenOn) return;
+  const u = new Uint8Array(buf);
+  if (u[0] === 0xFF && u[1] === 0xD8) showFrame(new Blob([buf], {type: 'image/jpeg'}));   // JPEG 文件头
+  else onVideo(u);
+}
+// 当前显示的画布：view（坐标换算要用它的尺寸）
+let view = scr;
+function useView(c) { if (view !== c) { view.classList.remove('on'); c.classList.add('on'); view = c; } }
+function fitCanvas(w, h, c = scr) { useView(c); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
+
+// ---------- 老版 Safari（16.x）：drawImage(VideoFrame) 会一直画同一帧且不报错 ----------
+// 改成把每帧的像素拷出来（copyTo），用 WebGL 自己把 YUV 转成 RGB 画出来
+const UA = navigator.userAgent;
+const OLD_SAFARI = /Version\/1[0-6]\./.test(UA) && /Safari/.test(UA) && !/Chrome|CriOS|Edg/.test(UA);
+let renderMode = new URLSearchParams(location.search).get('render') || (OLD_SAFARI ? 'gl' : '2d');
+const glView = $('#screenGL');
+let G = null, glBuf = null, glBusy = false, glPending = null, vSums = new Set(), vFmt = '', vRenderErr = '';
+function glInit() {
+  const gl = glView.getContext('webgl2', {alpha: false, antialias: false, depth: false});
+  if (!gl) return null;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o);
+    if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; out vec2 t;
+void main() { t = vec2((p.x + 1.0) * 0.5, (1.0 - p.y) * 0.5); gl_Position = vec4(p, 0.0, 1.0); }`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision mediump float;
+in vec2 t; out vec4 o;
+uniform sampler2D ty, tu, tv; uniform int mode; uniform bool full;
+void main() {
+  if (mode == 2) { o = vec4(texture(ty, t).rgb, 1.0); return; }     // RGBA
+  if (mode == 3) { o = vec4(texture(ty, t).bgr, 1.0); return; }     // BGRA
+  float y = texture(ty, t).r;
+  vec2 c = mode == 0 ? texture(tu, t).rg : vec2(texture(tu, t).r, texture(tv, t).r);   // NV12 / I420
+  c -= 0.5;
+  vec3 rgb = full
+    ? vec3(y + 1.5748 * c.y, y - 0.1873 * c.x - 0.4681 * c.y, y + 1.8556 * c.x)
+    : vec3(1.16438 * (y - 0.0627451)) + vec3(1.79274 * c.y, -0.21325 * c.x - 0.53291 * c.y, 2.11240 * c.x);
+  o = vec4(rgb, 1.0);
+}`));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const tex = ['ty', 'tu', 'tv'].map((n, i) => {
+    const tx = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tx);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                          [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.uniform1i(gl.getUniformLocation(prog, n), i);
+    return tx;
+  });
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  return {gl, tex, uMode: gl.getUniformLocation(prog, 'mode'), uFull: gl.getUniformLocation(prog, 'full')};
+}
+function glPlane(i, ifmt, fmt, bpp, w, h, layout) {
+  const {gl, tex} = G;
+  gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex[i]);
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH, layout.stride / bpp);
+  gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, glBuf.subarray(layout.offset));
+}
+// 画一帧（异步：拷像素要等）。拷的时候又来了新帧，只留最新的
+function glDraw(f) {
+  if (glBusy) { if (glPending) glPending.close(); glPending = f; return; }
+  glBusy = true;
+  const r = f.visibleRect, w = r ? r.width : f.codedWidth, h = r ? r.height : f.codedHeight;
+  const size = f.allocationSize();
+  if (!glBuf || glBuf.length < size) glBuf = new Uint8Array(size);
+  const fmt = vFmt = f.format || '?';
+  const full = !!(f.colorSpace && f.colorSpace.fullRange);
+  f.copyTo(glBuf).then(layout => {
+    if (!screenOn) return;
+    if (!G) G = glInit();
+    if (!G) throw new Error('没有 WebGL2');
+    const {gl} = G, cw = (w + 1) >> 1, ch = (h + 1) >> 1;
+    if (fmt === 'NV12') { glPlane(0, gl.R8, gl.RED, 1, w, h, layout[0]); glPlane(1, gl.RG8, gl.RG, 2, cw, ch, layout[1]); gl.uniform1i(G.uMode, 0); }
+    else if (fmt === 'I420') { glPlane(0, gl.R8, gl.RED, 1, w, h, layout[0]); glPlane(1, gl.R8, gl.RED, 1, cw, ch, layout[1]); glPlane(2, gl.R8, gl.RED, 1, cw, ch, layout[2]); gl.uniform1i(G.uMode, 1); }
+    else if (/^(RGBA|RGBX)$/.test(fmt)) { glPlane(0, gl.RGBA8, gl.RGBA, 4, w, h, layout[0]); gl.uniform1i(G.uMode, 2); }
+    else if (/^(BGRA|BGRX)$/.test(fmt)) { glPlane(0, gl.RGBA8, gl.RGBA, 4, w, h, layout[0]); gl.uniform1i(G.uMode, 3); }
+    else throw new Error('不认识的像素格式 ' + fmt);
+    gl.uniform1i(G.uFull, full ? 1 : 0);
+    fitCanvas(w, h, glView);
+    gl.viewport(0, 0, w, h);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    frames++;
+    // 诊断：抽样算一下亮度平面的校验和，看解出来的画面内容到底变没变
+    if (vSums.size < 200) { let sum = 0; const o = layout[0].offset, n = layout[0].stride * h; for (let i = o; i < o + n; i += 997) sum = (sum + glBuf[i] * (i & 255)) | 0; vSums.add(sum); }
+  }).catch(e => {
+    if (!vRenderErr) vRenderErr = `${e.name || 'Error'}: ${e.message}`;
+    renderMode = 'bitmap';                   // WebGL / copyTo 不行，退到 createImageBitmap
+  }).finally(() => {
+    f.close(); glBusy = false;
+    if (glPending) { const n = glPending; glPending = null; glDraw(n); }
+  });
+}
+// 退路：先转成 ImageBitmap 再画
+function bitmapDraw(f) {
+  createImageBitmap(f).then(bmp => {
+    if (screenOn) { fitCanvas(bmp.width, bmp.height); sctx.drawImage(bmp, 0, 0); frames++; }
+    bmp.close && bmp.close();
+  }).catch(e => { if (!vRenderErr) vRenderErr = `bitmap ${e.name}: ${e.message}`; renderMode = '2d'; })
+    .finally(() => f.close());
+}
+
+// H.264：第 1 个字节是类型（1 = 解码配置：宽、高各 2 字节 + avcC；2 = 关键帧；3 = 普通帧），后面是数据
+let vdec = null, vts = 0, vNeedKey = true, vCodec = '', vW = 0, vH = 0, vGot = 0, vRetrying = false, vFlaky = [];
+// 视频画面最大宽度：解码失败按出错的那个尺寸往下降一档，降到能用的记住
+const V_STEPS = [2880, 2560, 1920, 1600, 1280, 960];
+let vMaxW = S.vMaxW || 2880;
+// 统计（前几秒报给 Mac 方便排查）：收到几帧、解出几帧、画的时候出没出错
+let vRx = 0, vOwed = 0, vIdleT = null, vFlushes = 0, vDrawErr = '', vKeyAskAt = 0;
+function resetVideo() {
+  if (vdec) { try { vdec.close(); } catch (e) {} }
+  vdec = null; vNeedKey = true; vOwed = 0; clearTimeout(vIdleT);
+}
+const ack = () => send({t: 'screenAck'});
+// 回执不等「画出来」：解码器排队不多就回，有的解码器会压着几帧才出，等输出再回执会把整个流卡住
+function payOwed() { while (vOwed > 0 && (!vdec || vdec.decodeQueueSize <= 1)) { vOwed--; ack(); } }
+function askKey() { const now = Date.now(); if (now - vKeyAskAt > 500) { vKeyAskAt = now; send({t: 'screenKey'}); } }
+// 画面停下来了，解码器里还压着帧：让它全吐出来（之后要从关键帧重新开始）
+function videoIdle() {
+  if (!vdec || vdec.state !== 'configured' || vGot >= vRx) return;
+  vFlushes++; vNeedKey = true;
+  vdec.flush().catch(() => {});
+  askKey();
+}
+function onVideo(u) {
+  const kind = u[0], body = u.subarray(1);
+  if (kind === 1) {
+    resetVideo();
+    if (!VIDEO_OK || body.length < 8) return;
+    vW = body[0] << 8 | body[1]; vH = body[2] << 8 | body[3];
+    const avcC = body.slice(4);
+    const codecStr = vCodec = 'avc1.' + [1, 2, 3].map(i => avcC[i].toString(16).padStart(2, '0')).join('');
+    vGot = 0; vRx = 0; vFlushes = 0; vDrawErr = ''; vSums.clear();
+    const dec = vdec = new VideoDecoder({output: drawVideo, error: e => { if (vdec === dec) videoError(e); }});
+    dec.ondequeue = payOwed;
+    try { vdec.configure({codec: codecStr, description: avcC, codedWidth: vW, codedHeight: vH, optimizeForLatency: true}); }
+    catch (e) { videoError(e); }
+    return;
+  }
+  if (!vdec || vdec.state !== 'configured' || (vNeedKey && kind !== 2)) {
+    ack();
+    if (vdec && vNeedKey) askKey();
+    return;
+  }
+  vNeedKey = false; vRx++;
+  try { vdec.decode(new EncodedVideoChunk({type: kind === 2 ? 'key' : 'delta', timestamp: (vts += 16667), data: body})); }
+  catch (e) { ack(); videoError(e); return; }
+  vOwed++; payOwed();
+  clearTimeout(vIdleT); vIdleT = setTimeout(videoIdle, 150);
+}
+function drawVideo(f) {
+  vGot++;
+  if (screenOn && renderMode === 'gl') { glDraw(f); payOwed(); return; }
+  if (screenOn && renderMode === 'bitmap') { bitmapDraw(f); payOwed(); return; }
+  try {
+    if (screenOn) { fitCanvas(f.displayWidth, f.displayHeight); sctx.drawImage(f, 0, 0); frames++; }
+  } catch (e) {
+    if (!vDrawErr) vDrawErr = `${e.name}: ${e.message}`;
+  } finally {
+    f.close();
+  }
+  payOwed();
+}
+function reportVideo() {
+  if (screenOn && codec === 'h264') send({t: 'vstat', codec: vCodec, size: `${vW}×${vH}`, rx: vRx, out: vGot,
+    q: vdec ? vdec.decodeQueueSize : -1, state: vdec ? vdec.state : 'none', flushes: vFlushes, drawErr: vDrawErr || vRenderErr,
+    render: renderMode, fmt: vFmt, distinct: renderMode === 'gl' ? vSums.size : -1});
+}
+function videoError(e) {
+  const msg = e && e.name ? `${e.name}: ${e.message}` : String(e);
+  console.warn('视频解码出错', e);
+  if (vdec) { try { vdec.close(); } catch (x) {} }
+  vdec = null;
+  if (!screenOn || vRetrying) return;   // 同一次失败可能报好几遍，只处理一次
+  vRetrying = true;
+  send({t: 'vlog', text: msg, codec: vCodec, w: vW ? `${vW}×${vH}` : captureWidth(), got: vGot});   // 写进 Mac 日志方便排查
+  const now = Date.now();
+  vFlaky = vFlaky.filter(t => now - t < 15000);
+  if (vGot > 30 && vFlaky.length < 3) {
+    vFlaky.push(now);                  // 已经正常放过一阵子：偶发错误，原样重来
+  } else if (V_STEPS.some(w => w < (vW || vMaxW))) {
+    vMaxW = V_STEPS.find(w => w < (vW || vMaxW));   // 比出错的尺寸小一档
+    S.vMaxW = vMaxW; saveS();
+    toast(`视频解码失败，降到 ${vMaxW} 像素宽再试`);
+  } else {
+    S.video = false; $('#sVideo').checked = false; showVideoNote(); vMaxW = 2880; delete S.vMaxW; saveS();
+    toast('这台设备解不了视频，已改用图片模式（重新打开网页会再试）', true);
+  }
+  setTimeout(() => { vRetrying = false; if (screenOn) subscribeScreen(); }, 300);   // 重新订阅，Mac 从关键帧重新开始
+}
+
+// http 打开时，试试 HTTPS 能不能用（装过并信任了 Mac 的证书才行）；能用就自动换过去，才有视频模式
+let httpsPort = 0, httpsOK = null;
+async function probeHttps(port) {
+  if (httpsOK !== null) return;
+  httpsPort = port; httpsOK = false;
+  const ac = new AbortController(); setTimeout(() => ac.abort(), 2500);
+  try {
+    await fetch(`https://${location.hostname}:${port}/ping`, {mode: 'no-cors', cache: 'no-store', signal: ac.signal});
+    httpsOK = true;
+    if (S.video) location.replace(`https://${location.hostname}:${port}/remote?token=${encodeURIComponent(TOKEN)}`);
+  } catch (e) {}
+  showVideoNote();
+  reportClient();
+}
+function modeLabel() {
+  if (codec === 'h264') return '视频';
+  if (!S.video) return '图片';
+  if (!window.isSecureContext) return '图片（没用 HTTPS：证书没装好或没打开信任，见设置）';
+  if (!VIDEO_OK) return '图片（这个浏览器不支持视频解码）';
+  return '图片';
+}
+// 告诉 Mac 这台设备的情况，写进日志方便排查
+function reportClient() {
+  send({t: 'client', dev: IPAD ? 'iPad' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'other',
+        secure: window.isSecureContext, webcodecs: typeof VideoDecoder === 'function', https: httpsOK,
+        standalone: document.body.classList.contains('standalone'), dpr: window.devicePixelRatio || 1,
+        ua: ((navigator.userAgent.match(/OS [\d_]+/) || [''])[0] + ' ' + (navigator.userAgent.match(/Version\/[\d.]+/) || [''])[0]).trim(),
+        geo: geometry()});
+}
+function geometry() {
+  const cs = getComputedStyle($('#safeProbe'));
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:100vh;visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe);
+  const vh = probe.offsetHeight; probe.style.height = '100lvh'; const lvh = probe.offsetHeight; probe.remove();
+  return `窗口 ${innerWidth}×${innerHeight}，屏幕 ${screen.width}×${screen.height}，100vh=${vh} 100lvh=${lvh}，状态栏样式 ${document.querySelector('meta[name=apple-mobile-web-app-status-bar-style]').content}，`
+    + `安全区 上${parseFloat(cs.paddingTop)} 下${parseFloat(cs.paddingBottom)} 左${parseFloat(cs.paddingLeft)} 右${parseFloat(cs.paddingRight)}`;
+}
+function showVideoNote() {
+  const n = $('#videoNote');
+  if (VIDEO_OK) { n.textContent = S.video ? '已开启：H.264 硬件解码' : '已关闭：用 JPEG 图片'; return; }
+  if (window.isSecureContext) { n.textContent = '这个浏览器不支持 WebCodecs，只能用图片模式。'; return; }
+  n.innerHTML = '视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载 Mac 的证书</a>，'
+    + '到「设置 → 已下载描述文件」安装；②「设置 → 通用 → 关于本机 → 证书信任设置」打开「Mac 遥控 本机证书」；③回来刷新本页，会自动换成 HTTPS。';
+}
+
+function showFrame(blob) {
+  if (!screenOn) return;
+  if (decoding) { if (nextBlob) send({t: 'screenAck'}); nextBlob = blob; return; }
+  decoding = true;
+  createImageBitmap(blob).then(bmp => {
+    fitCanvas(bmp.width, bmp.height);
+    sctx.drawImage(bmp, 0, 0);
+    if (bmp.close) bmp.close();
+    frames++;
+  }).catch(() => {}).finally(() => {
+    decoding = false;
+    send({t: 'screenAck'});
+    if (nextBlob) { const b = nextBlob; nextBlob = null; showFrame(b); }
+  });
+}
+// 手机上的位置 → Mac 画面里的相对位置（0~1）；点在画面外面返回 null
+// 先换算成触控板自己坐标系里的位置（界面转了 90° 时屏幕坐标和界面坐标不一样）
+function padLocal(cx, cy) {
+  const r = pad.getBoundingClientRect(), W = pad.clientWidth, H = pad.clientHeight;
+  const ox = cx - (r.left + r.width / 2), oy = cy - (r.top + r.height / 2);
+  return {lx: W / 2 + (rotated ? oy : ox), ly: H / 2 + (rotated ? -ox : oy), W, H};
+}
+function screenPoint(cx, cy, clampIt) {
+  if (!view.width) return null;
+  const {lx, ly, W, H} = padLocal(cx, cy);
+  const k = Math.min(W / view.width, H / view.height);
+  const dw = view.width * k, dh = view.height * k;
+  let x = (lx - (W - dw) / 2) / dw, y = (ly - (H - dh) / 2) / dh;
+  if (clampIt) { x = clamp(x, 0, 1); y = clamp(y, 0, 1); }
+  return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? {x: +x.toFixed(4), y: +y.toFixed(4)} : null;
+}
+// Apple Pencil 落点 → Mac 屏幕相对位置。开着屏幕时点画面上的位置；没开屏幕时整块触控板对应整个 Mac 屏幕（像数位板）
+function penPoint(t, clampIt) {
+  if (screenOn && view.width) return screenPoint(t.clientX, t.clientY, clampIt);
+  const {lx, ly, W, H} = padLocal(t.clientX, t.clientY);
+  return {x: +clamp(lx / W, 0, 1).toFixed(4), y: +clamp(ly / H, 0, 1).toFixed(4)};
+}
+setInterval(() => {
+  if (screenOn) $('#fps').textContent = (frames ? `${frames} 帧/秒` : '画面静止') + ' · ' + modeLabel();
+  frames = 0;
+}, 1000);
+$('#btnScreen').addEventListener('click', () => { if (!debounced('screen')) setScreen(!screenOn); });
+$('#scrClose').addEventListener('touchstart', e => e.stopPropagation(), {passive: true});
+$('#scrClose').addEventListener('click', e => { e.stopPropagation(); setScreen(false); });
+// 转屏 / 尺寸变化后按新尺寸要画面
+var rsTimer;
+addEventListener('resize', updateLayout);
+$('#sExit').addEventListener('click', () => setScreen(false));
+$('#sSet').addEventListener('click', () => toggleSheet('settings'));
+
+// ---------- Pencil 手写板（iPad 随手写 Scribble）----------
+// 手写板就是一个透明的大输入框：iPadOS 把 Pencil 写的字识别成文字放进来，网页把变化实时打到 Mac 上
+const hw = $('#hw'), hwText = $('#hwText');
+let hwLast = '', hwComposing = false;
+const segmenter = window.Intl && Intl.Segmenter ? new Intl.Segmenter() : null;
+const graphemes = str => segmenter ? Array.from(segmenter.segment(str), x => x.segment) : Array.from(str);
+function hwOpen() {
+  if (hw.classList.contains('open')) return;
+  hwText.value = ''; hwLast = '';
+  hw.classList.add('open');
+  sideOpen(false);
+  haptic();
+}
+function hwClose() {
+  if (!hw.classList.contains('open')) return;
+  hw.classList.remove('open');
+  hwText.blur(); hwText.value = ''; hwLast = '';
+}
+// 和上次比：后面变了的部分先在 Mac 上退格删掉，再把新的打上去（划掉删除、自动更正都能跟上）
+function hwSync() {
+  if (hwComposing) return;
+  const a = graphemes(hwLast), b = graphemes(hwText.value);
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  for (let k = i; k < a.length; k++) send({t: 'key', key: 'delete'});
+  const add = b.slice(i).join('');
+  if (add) send({t: 'text', text: add, paste: S.paste});
+  hwLast = hwText.value;
+}
+hwText.addEventListener('compositionstart', () => hwComposing = true);
+hwText.addEventListener('compositionend', () => { hwComposing = false; setTimeout(hwSync, 0); });
+hwText.addEventListener('input', e => { if (!e.isComposing) hwSync(); });
+hwText.addEventListener('keydown', e => {
+  if (e.isComposing || hwComposing) return;
+  if (e.key === 'Enter') { e.preventDefault(); hwKey('enter'); }
+  else if (e.key === 'Backspace' && !hwText.value) { e.preventDefault(); send({t: 'key', key: 'delete'}); }
+});
+function hwKey(k) {
+  if (k === 'del') {
+    const g = graphemes(hwText.value);
+    if (g.length) { g.pop(); hwText.value = g.join(''); hwLast = hwText.value; }
+    send({t: 'key', key: 'delete'});
+  } else if (k === 'space') { hwText.value += ' '; hwSync(); }
+  else if (k === 'enter') { hwSync(); send({t: 'key', key: 'return'}); hwText.value = ''; hwLast = ''; }
+  else if (k === 'done') hwClose();
+  haptic();
+}
+hw.querySelectorAll('[data-hw]').forEach(b => {
+  b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); hwKey(b.dataset.hw); }, {passive: false});
+  if (!('ontouchstart' in window)) b.addEventListener('click', () => hwKey(b.dataset.hw));
+});
+// 手指点一下手写板就关掉；Pencil 留给随手写
+hw.addEventListener('touchstart', e => {
+  if (e.target.closest('button')) return;
+  const t = e.changedTouches[0];
+  if (t && t.touchType !== 'stylus') { e.preventDefault(); hwClose(); }
+}, {passive: false});
+$('#sHw').addEventListener('click', () => { hw.classList.contains('open') ? hwClose() : hwOpen(); });
+
+// ---------- 看屏幕时的操作方式：触控板 / 触摸屏 ----------
+function showMode() {
+  const t = S.touchMode === 'touch';
+  $('#sMode').textContent = t ? '触摸屏' : '触控板';
+  $('#sMode').classList.toggle('on', t);
+  document.querySelectorAll('#segMode button').forEach(b => b.classList.toggle('on', b.dataset.v === S.touchMode));
+}
+function setTouchMode(v, quiet) {
+  S.touchMode = v; saveS(); showMode();
+  if (!quiet) toast(v === 'touch' ? '触摸屏：点哪点哪 · 滑动滚动 · 长按右键 / 拖动 · 多指手势照用' : '触控板：手指推光标 · 轻点左键 · 双指滚动 / 右键');
+}
+$('#sMode').addEventListener('click', () => { if (!debounced('mode')) { setTouchMode(S.touchMode === 'touch' ? 'pad' : 'touch'); armSideHide(); haptic(); } });
+document.querySelectorAll('#segMode button').forEach(b => b.addEventListener('click', () => setTouchMode(b.dataset.v)));
+showMode();
+
+// ---------- 全屏看屏幕：按钮栏弹出 / 自动收起 ----------
+let sideTimer = null;
+const isSideOpen = () => document.body.classList.contains('sideOpen');
+function sideOpen(open) { document.body.classList.toggle('sideOpen', open); armSideHide(); }
+function armSideHide() {
+  clearTimeout(sideTimer);
+  if (!isSideOpen()) return;
+  // 按住左键、开着面板时不收
+  sideTimer = setTimeout(() => { if (leftHeld || openName) armSideHide(); else sideOpen(false); }, 4000);
+}
+$('#fab').addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); sideOpen(!isSideOpen()); haptic(); }, {passive: false});
+if (!('ontouchstart' in window)) $('#fab').addEventListener('click', () => sideOpen(!isSideOpen()));
+$('#side').addEventListener('touchstart', armSideHide, {passive: true});
+// 摸画面（操作鼠标）时收起按钮栏；按住左键拖动时不收
+pad.addEventListener('touchstart', () => { if (isSideOpen() && !openName && !leftHeld) sideOpen(false); }, {passive: true});
+$('#sKeys').addEventListener('click', () => toggleSheet('keys'));
+$('#sKb').addEventListener('click', () => $('#btnKb').click());
+$('#sVoice').addEventListener('click', () => $('#btnVoice').click());
+
+// ---------- 设置面板 ----------
+const bind = (id, key, isBool) => {
+  const el = $(id);
+  if (isBool) el.checked = !!S[key]; else el.value = S[key];
+  el.addEventListener(isBool ? 'change' : 'input', () => { S[key] = isBool ? el.checked : +el.value; saveS(); });
+};
+bind('#sSpeed', 'speed'); bind('#sScroll', 'scroll'); bind('#sNatural', 'natural', true);
+bind('#sInertia', 'inertia', true); bind('#sPaste', 'paste', true); bind('#sHaptic', 'haptic', true);
+bind('#sImm', 'immersive', true); $('#sImm').addEventListener('change', updateLayout);
+bind('#sFit', 'fitMac', true); $('#sFit').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
+bind('#sScribble', 'scribble', true);
+bind('#sTapAt', 'tapAt', true); bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLand', true); bind('#sVideo', 'video', true);
+$('#sVideo').addEventListener('change', () => {
+  if (S.video) { vMaxW = 2880; delete S.vMaxW; saveS(); }
+  showVideoNote();
+  if (screenOn) subscribeScreen();
+  if (S.video && !VIDEO_OK && httpsOK) location.replace(`https://${location.hostname}:${httpsPort}/remote?token=${encodeURIComponent(TOKEN)}`);
+});
+showVideoNote();
+$('#sAutoLand').addEventListener('change', updateLayout);
+const showFps = () => $('#fpsVal').textContent = S.fps + ' 帧';
+showFps(); $('#sFps').addEventListener('input', showFps);
+$('#sFps').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
+const tok = $('#sToken'); tok.value = TOKEN;
+tok.addEventListener('change', () => {
+  TOKEN = tok.value.trim();
+  try { localStorage.setItem('wb.token', TOKEN); } catch (e) {}
+  fatal = false; if (ws) ws.close(); else connect();
+});
+
+// ---------- 布局：高度 = 实际能显示的区域；键盘弹出时 = 键盘上方的区域 ----------
+// 平时 body 用 inset:0 铺满整屏（主屏幕全屏模式下 visualViewport 高度会比屏幕矮，不能拿它当高度）；
+// 只有键盘弹出、可见区域明显变矮时，才把高度设成可见区域，让输入框和按钮留在键盘上方。
+function fit() {
+  const vv = window.visualViewport;
+  const full = document.documentElement.clientHeight;
+  const kbUp = kbIsUp = vv && (document.activeElement === ta || document.activeElement === hwText) && vv.height < full - 120;
+  const h = Math.round(kbUp ? vv.height : window.innerHeight);
+  if (document.body.style.height !== h + 'px') { document.body.style.height = h + 'px'; updateLayout(); }
+  window.scrollTo(0, 0);
+}
+addEventListener('orientationchange', () => { setTimeout(fit, 120); setTimeout(fit, 500); });   // iOS 转屏后高度更新得晚
+ta.addEventListener('focus', () => setTimeout(fit, 300));
+ta.addEventListener('blur', () => setTimeout(fit, 100));
+if (window.visualViewport) { visualViewport.addEventListener('resize', fit); visualViewport.addEventListener('scroll', fit); }
+addEventListener('resize', fit);
+fit();
+
+// 屏幕常亮（需要 HTTPS，http 下会静默失败）
+async function wake() { try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+wake();
+
+connect();
+</script>
+</body>
+</html>

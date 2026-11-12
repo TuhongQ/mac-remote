@@ -1,0 +1,6 @@
+build/
+watch/MacRemoteWatch/Config.generated.swift
+watch/build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
