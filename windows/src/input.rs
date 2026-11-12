@@ -120,7 +120,7 @@ pub fn move_to(x: i32, y: i32) {
 }
 
 /// 网页发来的位移是「点」，按系统缩放比例换成像素（150% 缩放时 1 点 = 1.5 像素）
-fn dpi_scale() -> f64 {
+pub fn dpi_scale() -> f64 {
     (unsafe { GetDpiForSystem() } as f64 / 96.0).max(1.0)
 }
 

@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 
 use crate::commands;
 use crate::input::{self, Button, INPUT_LOCK};
+use crate::screen;
 use crate::util::log;
 
 pub struct Config {
@@ -386,6 +387,7 @@ fn websocket(mut stream: TcpStream, key: &str, ok: bool, ip: String, leftover: V
         return;
     }
     let Ok(out) = stream.try_clone() else { return };
+    let _ = out.set_write_timeout(Some(Duration::from_secs(10))); // 手机卡住时别把发画面的线程卡死
     let ws = Arc::new(Ws { out: Mutex::new(out) });
     if !ok {
         // 先升级再报错，网页才能拿到原因
@@ -396,7 +398,7 @@ fn websocket(mut stream: TcpStream, key: &str, ok: bool, ip: String, leftover: V
         return;
     }
     log(format!("遥控已连接：{ip}"));
-    ws.send(&json!({"t": "hello", "https": 0, "page": page_hash(), "os": "windows", "screen": false}));
+    ws.send(&json!({"t": "hello", "https": 0, "page": page_hash(), "os": "windows"}));
 
     // 30 秒没收到任何消息（网页每 3 秒 ping 一次）就当断开
     let _ = stream.set_read_timeout(Some(Duration::from_secs(30)));
@@ -485,6 +487,7 @@ fn websocket(mut stream: TcpStream, key: &str, ok: bool, ip: String, leftover: V
             }
         }
     }
+    screen::unsubscribe(Arc::as_ptr(&ws) as usize);
     log(format!("遥控已断开：{ip}"));
     let _ = stream.shutdown(Shutdown::Both);
     let _g = INPUT_LOCK.lock();
@@ -494,11 +497,22 @@ fn websocket(mut stream: TcpStream, key: &str, ok: bool, ip: String, leftover: V
 fn on_ws_message(m: &Value, ws: &Arc<Ws>, ip: &str) {
     match s(m, "t").unwrap_or("") {
         "screen" => {
+            let key = Arc::as_ptr(ws) as usize;
             if m.get("on").and_then(|x| x.as_bool()) == Some(true) {
-                ws.send(&json!({"t": "screen", "ok": false, "text": "Windows 版看屏幕功能还在开发中"}));
+                // 现在只有图片模式；网页要 H.264 时回 jpeg，网页会照图片处理
+                ws.send(&json!({"t": "screen", "ok": true, "codec": "jpeg"}));
+                let (w, h) = screen::info();
+                ws.send(&json!({"t": "screenInfo", "w": w, "h": h}));
+                let wsc = ws.clone();
+                screen::subscribe(key, num(m, "w") as u32, num(m, "fps") as u32, move || {
+                    Box::new(move |b: &[u8]| wsc.frame(0x2, b))
+                });
+            } else {
+                screen::unsubscribe(key);
             }
         }
-        "screenAck" | "screenKey" | "focusCheck" | "axAt" | "hitAt" => {}
+        "screenAck" => screen::ack(Arc::as_ptr(ws) as usize),
+        "screenKey" | "focusCheck" | "axAt" | "hitAt" | "fit" => {}
         "client" => log(format!(
             "{ip} 设备：{}，{}，{}",
             s(m, "dev").unwrap_or("?"),

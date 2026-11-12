@@ -2,8 +2,8 @@
 
 用 iPhone / iPad 遥控 **Windows 电脑**。和 Mac 版（本仓库根目录）用的是**同一个网页遥控器、同一套通信协议**，手机这边的操作完全一样。
 
-> 开发进度：**第 1 步**（托盘程序、连接、鼠标、键盘、打字、手势、语音指令）已完成，等待在 Windows 电脑上实测。
-> 第 2 步：看屏幕（图片 / H.264 视频模式、HTTPS 证书）。第 3 步：iPad 触摸屏模式细节、Pencil 手写板、安装包。
+> 开发进度：**第 1 步**（托盘程序、连接、鼠标、键盘、打字、手势、语音指令）已完成。
+> **第 2 步**：看屏幕——图片（JPEG）模式已完成；H.264 视频模式和 HTTPS 证书还没做。第 3 步：iPad 触摸屏模式细节、Pencil 手写板、安装包。
 
 ---
 
@@ -56,7 +56,7 @@
 
 ### 和 Mac 版的区别（现在）
 
-- 还不能看屏幕（第 2 步）
+- 看屏幕只有图片模式（JPEG，最宽 1920 像素），只显示主显示器；锁屏和 UAC 弹窗（安全桌面）时画面停住，回到桌面后继续
 - 滚动用的是滚轮事件（支持平滑滚动），没有 Mac 触控板那种滚动阶段，回弹手感会略有不同
 - 不支持调亮度、iPhone 自带的「Apple TV 遥控器」
 - iPad 全屏时不能像 Mac 那样临时改成 iPad 的屏幕比例（Windows 建虚拟显示器要装驱动）
@@ -82,6 +82,7 @@ Rust 写的，不依赖 .NET 或 VC++ 运行库，编译出来是单个 exe（�
 | `src/server.rs` | HTTP（/remote、/type、/key、/command、/batch）、WebSocket、遥控消息处理 |
 | `src/input.rs` | SendInput：绝对坐标移动光标、按键（含扩展键标志）、Unicode 打字、滚轮、剪贴板粘贴、媒体键；Mac 按键名 → Windows 组合键的翻译表 |
 | `src/commands.rs` | 中文语音指令、打开程序（ShellExecute + 别名表） |
+| `src/screen.rs` | 看屏幕：GDI 截主显示器、缩放、画光标、JPEG 压缩，按手机回执控制发送节奏，画面没变就不发 |
 | `src/tray.rs` | 托盘图标和菜单、二维码页面、开机启动 |
 | `src/util.rs` | 配置目录、token、日志、本机 IP |
 
@@ -111,4 +112,5 @@ cargo install cargo-zigbuild        # 用 Zig 当链接器（Homebrew 的 MinGW 
 - 锁屏不能模拟 Win+L，用 `LockWorkStation()`
 - 滚动：网页的「像素」× 2.4 = 滚轮单位（一格 120），不足一格的值就是平滑滚动；方向和 Mac 版自然滚动一致
 - 所有输入在一把全局锁下串行执行，防止多台设备的字交错
-- WebSocket 连上先发 `{"t":"hello","os":"windows","screen":false,…}`，网页据此换按钮说法、隐藏屏幕按钮
+- WebSocket 连上先发 `{"t":"hello","os":"windows",…}`，网页据此换按钮说法
+- 看屏幕：网页发 `{"t":"screen","on":true,"w":…,"fps":…}`，回 `{"t":"screen","ok":true,"codec":"jpeg"}` 和 `screenInfo`（逻辑像素），之后每帧一个二进制 JPEG；网页显示完回 `screenAck`，未回执最多 2 帧

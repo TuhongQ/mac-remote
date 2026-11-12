@@ -4,6 +4,7 @@
 
 mod commands;
 mod input;
+mod screen;
 mod server;
 mod tray;
 mod util;
