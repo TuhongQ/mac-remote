@@ -14,6 +14,9 @@ sha1_smol = "1"
 base64 = "0.22"
 getrandom = "0.2"
 jpeg-encoder = { version = "0.7", features = ["simd"] }
+openh264 = "0.9"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem", "crypto", "x509-parser"] }
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 
 [dependencies.windows-sys]
@@ -30,6 +33,7 @@ features = [
     "Win32_System_DataExchange",
     "Win32_System_Memory",
     "Win32_System_Ole",
+    "Win32_System_Com",
     "Win32_System_Threading",
     "Win32_System_SystemInformation",
     "Win32_System_Registry",

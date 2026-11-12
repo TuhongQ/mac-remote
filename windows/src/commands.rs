@@ -3,6 +3,7 @@
 use crate::input::{self, Button, Media};
 use crate::util::wide;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_BACK, VK_DOWN, VK_ESCAPE, VK_LEFT, VK_RETURN, VK_RIGHT, VK_UP};
+use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
@@ -54,12 +55,19 @@ pub fn open_app(spoken: &str) -> bool {
         .find(|(k, _)| *k == lower || *k == key)
         .map(|(_, v)| v.to_string())
         .unwrap_or_else(|| key.to_string());
-    let op = wide("open");
-    let file = wide(&name);
-    let r = unsafe {
-        ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), file.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL)
-    };
-    r as isize > 32
+    // ShellExecute 要求线程初始化过 COM，而且有时候会卡很久（找程序、弹「选择打开方式」）。
+    // 放到单独的线程里，最多等 4 秒，不让它卡住后面的鼠标键盘
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let op = wide("open");
+        let file = wide(&name);
+        let r = unsafe {
+            CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32);
+            ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), file.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL)
+        };
+        let _ = tx.send(r as isize > 32);
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(4)).unwrap_or(true)
 }
 
 fn clean(s: &str) -> String {

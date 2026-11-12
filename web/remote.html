@@ -347,6 +347,7 @@ function applyOS(m) {
     if (/^亮度/.test(t)) b.style.visibility = 'hidden';           // Windows 版不支持调亮度
   });
   if (m.screen === false) $('#btnScreen').style.display = 'none';  // 还不能看屏幕的版本
+  showVideoNote();
   const hint = $('#hint'); if (hint) hint.innerHTML = hint.innerHTML.replace('调度中心', '任务视图');
 }
 
@@ -1234,8 +1235,9 @@ function showVideoNote() {
   const n = $('#videoNote');
   if (VIDEO_OK) { n.textContent = S.video ? '已开启：H.264 硬件解码' : '已关闭：用 JPEG 图片'; return; }
   if (window.isSecureContext) { n.textContent = '这个浏览器不支持 WebCodecs，只能用图片模式。'; return; }
-  n.innerHTML = '视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载 Mac 的证书</a>，'
-    + '到「设置 → 已下载描述文件」安装；②「设置 → 通用 → 关于本机 → 证书信任设置」打开「Mac 遥控 本机证书」；③回来刷新本页，会自动换成 HTTPS。';
+  const win = hostOS === 'windows';
+  n.innerHTML = `视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载${win ? '电脑' : ' Mac '}的证书</a>，`
+    + `到「设置 → 已下载描述文件」安装；②「设置 → 通用 → 关于本机 → 证书信任设置」打开「${win ? 'PC 遥控' : 'Mac 遥控'} 本机证书」；③回来刷新本页，会自动换成 HTTPS。`;
 }
 
 function showFrame(blob) {

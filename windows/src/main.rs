@@ -3,14 +3,16 @@
 #![windows_subsystem = "windows"]
 
 mod commands;
+mod h264;
 mod input;
 mod screen;
 mod server;
+mod tls;
 mod tray;
 mod util;
 
 use util::{log, wide};
-use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
 use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_OK};
@@ -20,12 +22,21 @@ fn main() {
     unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
 
     // 只运行一个
+    // --restart：旧进程正在退出（比如换成管理员身份），等它最多 10 秒
     let name = wide("Local\\WatchBridgePCRemote");
-    unsafe {
-        CreateMutexW(std::ptr::null(), 0, name.as_ptr());
-        if GetLastError() == ERROR_ALREADY_EXISTS {
+    let restart = std::env::args().any(|a| a == "--restart");
+    let mut tries = 0;
+    loop {
+        let h = unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) };
+        if unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
+            break;
+        }
+        tries += 1;
+        if !restart || tries > 50 {
             return;
         }
+        unsafe { CloseHandle(h) };
+        std::thread::sleep(std::time::Duration::from_millis(200));
     }
 
     let args: Vec<String> = std::env::args().collect();

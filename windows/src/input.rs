@@ -2,9 +2,12 @@
 //! 网页发来的按键名是 Mac 的写法（cmd+c、ctrl+←切桌面……），在这里翻译成 Windows 的等价操作。
 
 use std::mem::size_of;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use windows_sys::Win32::Foundation::{HANDLE, POINT, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, HWND, POINT, RECT};
+use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
 use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTOPRIMARY};
 use windows_sys::Win32::System::DataExchange::{
     CloseClipboard, EmptyClipboard, GetClipboardData, GetClipboardSequenceNumber, OpenClipboard, SetClipboardData,
@@ -14,7 +17,7 @@ use windows_sys::Win32::System::Shutdown::LockWorkStation;
 use windows_sys::Win32::UI::HiDpi::GetDpiForSystem;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
 
 const CF_UNICODETEXT: u32 = 13;
@@ -56,11 +59,86 @@ impl Button {
     }
 }
 
+static BLOCKED: AtomicBool = AtomicBool::new(false);
+
 fn send(inputs: &[INPUT]) {
     if inputs.is_empty() {
         return;
     }
-    unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), size_of::<INPUT>() as i32) };
+    let n = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), size_of::<INPUT>() as i32) };
+    // 前台是管理员窗口（UIPI）、锁屏、UAC 安全桌面时，Windows 会拒绝模拟输入
+    if n as usize != inputs.len() || foreground_blocks_us() {
+        BLOCKED.store(true, Ordering::Relaxed);
+    }
+}
+
+/// 上次检查以来有没有输入被拒绝；有的话返回给用户看的原因
+pub fn take_blocked() -> Option<String> {
+    if !BLOCKED.swap(false, Ordering::Relaxed) {
+        return None;
+    }
+    Some(if foreground_blocks_us() {
+        "电脑前台的窗口是用管理员权限运行的（比如任务管理器），Windows 不允许普通程序操作它。\
+         切到别的窗口，或在托盘菜单里选「以管理员身份重新启动」"
+            .into()
+    } else {
+        "Windows 拒绝了模拟的鼠标键盘（可能在锁屏或 UAC 确认窗口），回到桌面后再试".into()
+    })
+}
+
+/// 前台窗口是管理员权限、而自己不是（这时发出去的输入会被系统悄悄丢掉）。结果缓存 1 秒
+fn foreground_blocks_us() -> bool {
+    use std::time::{Duration, Instant};
+    static CACHE: Mutex<Option<(Instant, usize, bool)>> = Mutex::new(None);
+    let fg: HWND = unsafe { GetForegroundWindow() };
+    if let Some((t, h, v)) = *CACHE.lock().unwrap() {
+        if h == fg as usize && t.elapsed() < Duration::from_secs(1) {
+            return v;
+        }
+    }
+    let v = !fg.is_null() && !self_elevated() && {
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(fg, &mut pid) };
+        pid != 0 && process_elevated(pid).unwrap_or(true)
+    };
+    *CACHE.lock().unwrap() = Some((Instant::now(), fg as usize, v));
+    v
+}
+
+pub fn self_elevated() -> bool {
+    static V: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *V.get_or_init(|| token_elevated(unsafe { GetCurrentProcess() }).unwrap_or(false))
+}
+
+/// 打不开（权限不够）返回 None
+fn process_elevated(pid: u32) -> Option<bool> {
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if h.is_null() {
+            return None;
+        }
+        let r = token_elevated(h);
+        CloseHandle(h);
+        r
+    }
+}
+
+fn token_elevated(process: HANDLE) -> Option<bool> {
+    unsafe {
+        let mut tok: HANDLE = std::ptr::null_mut();
+        if OpenProcessToken(process, TOKEN_QUERY, &mut tok) == 0 {
+            return None;
+        }
+        let mut e = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        let mut len = 0u32;
+        let ok = GetTokenInformation(tok, TokenElevation, &mut e as *mut _ as *mut _, size_of::<TOKEN_ELEVATION>() as u32, &mut len);
+        CloseHandle(tok);
+        if ok == 0 {
+            None
+        } else {
+            Some(e.TokenIsElevated != 0)
+        }
+    }
 }
 
 fn mouse_input(dx: i32, dy: i32, data: i32, flags: u32) -> INPUT {

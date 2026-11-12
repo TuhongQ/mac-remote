@@ -1,4 +1,4 @@
-//! 看屏幕（图片模式）：GDI 截主显示器 → 缩放 → 画上光标 → JPEG → WebSocket 二进制帧
+//! 看屏幕：GDI 截主显示器 → 缩放 → 画上光标 → JPEG 图片，或 H.264 视频（OpenH264）→ WebSocket 二进制帧
 //!
 //! 和 Mac 版一样按回执控制节奏：手机每显示完一帧回一个 screenAck，没回执的帧最多 2 个，
 //! 网络慢时自动降帧，不会越积越卡。画面没变化时不发。
@@ -18,6 +18,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     DrawIconEx, GetCursorInfo, GetIconInfo, CURSORINFO, CURSOR_SHOWING, DI_NORMAL, ICONINFO,
 };
 
+use crate::h264::H264;
 use crate::input::{dpi_scale, primary_bounds};
 use crate::util::log;
 
@@ -30,7 +31,9 @@ struct State {
     fps: u32,
     inflight: u32,
     alive: bool,
-    gen: u64, // 每次重新订阅 +1：网页清空了画布，要重发当前画面
+    gen: u64, // 每次重新订阅 +1：网页清空了画布 / 解码器，要从头（关键帧）发
+    video: bool,
+    want_key: bool, // 手机要一个关键帧
 }
 
 struct Sub {
@@ -52,8 +55,9 @@ pub fn info() -> (i32, i32) {
 }
 
 /// 开始 / 更新看屏幕。key = 这条连接的标识
-pub fn subscribe(key: usize, width: u32, fps: u32, send: impl FnOnce() -> SendBin) {
-    let width = width.clamp(320, 1920);
+pub fn subscribe(key: usize, width: u32, fps: u32, video: bool, send: impl FnOnce() -> SendBin) {
+    // 视频最宽 2560（软件编码，再大太吃 CPU）；图片最宽 1920
+    let width = width.clamp(320, if video { 2560 } else { 1920 });
     let fps = if fps == 0 { 30 } else { fps.clamp(2, 60) };
     let mut map = subs().lock().unwrap();
     if let Some(sub) = map.get(&key) {
@@ -62,16 +66,17 @@ pub fn subscribe(key: usize, width: u32, fps: u32, send: impl FnOnce() -> SendBi
         st.fps = fps;
         st.inflight = 0;
         st.gen += 1;
+        st.video = video;
         sub.cv.notify_all();
         return;
     }
     let sub = Arc::new(Sub {
-        st: Mutex::new(State { width, fps, inflight: 0, alive: true, gen: 1 }),
+        st: Mutex::new(State { width, fps, inflight: 0, alive: true, gen: 1, video, want_key: false }),
         cv: Condvar::new(),
         send: send(),
     });
     map.insert(key, sub.clone());
-    log(format!("屏幕镜像已开始（{width} 像素宽，最多 {fps} 帧/秒，图片）"));
+    log(format!("屏幕镜像已开始（最宽 {width} 像素，最多 {fps} 帧/秒，{}）", if video { "视频" } else { "图片" }));
     thread::spawn(move || worker(sub));
 }
 
@@ -79,6 +84,14 @@ pub fn ack(key: usize) {
     if let Some(sub) = subs().lock().unwrap().get(&key) {
         let mut st = sub.st.lock().unwrap();
         st.inflight = st.inflight.saturating_sub(1);
+        sub.cv.notify_all();
+    }
+}
+
+/// 手机要一个关键帧（它清空了解码器）
+pub fn request_key(key: usize) {
+    if let Some(sub) = subs().lock().unwrap().get(&key) {
+        sub.st.lock().unwrap().want_key = true;
         sub.cv.notify_all();
     }
 }
@@ -96,9 +109,12 @@ fn worker(sub: Arc<Sub>) {
     let mut last_hash = 0u64;
     let mut last_gen = 0u64;
     let mut fails = 0u32;
+    let mut enc: Option<H264> = None;
+    let mut refresh_left = 0u32; // 视频：画面停下后再补发两次同样的画面，让画质补清楚
+    let mut last_sent = Instant::now();
     loop {
         // 等回执：没回执的帧太多就先不截。1 秒还没回执就当丢了
-        let (width, fps, gen) = {
+        let (width, fps, gen, video, want_key) = {
             let mut st = sub.st.lock().unwrap();
             while st.alive && st.inflight >= MAX_INFLIGHT {
                 let (g, t) = sub.cv.wait_timeout(st, Duration::from_secs(1)).unwrap();
@@ -110,7 +126,8 @@ fn worker(sub: Arc<Sub>) {
             if !st.alive {
                 return;
             }
-            (st.width, st.fps, st.gen)
+            let k = std::mem::take(&mut st.want_key);
+            (st.width, st.fps, st.gen, st.video, k)
         };
         let t0 = Instant::now();
         let interval = Duration::from_secs_f64(1.0 / fps as f64);
@@ -118,17 +135,75 @@ fn worker(sub: Arc<Sub>) {
             Some((px, w, h)) => {
                 fails = 0;
                 let hash = fnv(&px);
-                if hash != last_hash || gen != last_gen {
-                    let q = if fps > 30 { 45 } else { 60 };
-                    let mut jpg = Vec::with_capacity(px.len() / 10);
-                    let enc = jpeg_encoder::Encoder::new(&mut jpg, q);
-                    if enc.encode(&px, w as u16, h as u16, jpeg_encoder::ColorType::Bgra).is_ok() {
-                        sub.st.lock().unwrap().inflight += 1;
-                        if !(sub.send)(&jpg) {
-                            return; // 连接断了
+                let changed = hash != last_hash || gen != last_gen;
+                if changed {
+                    refresh_left = 2;
+                }
+                let refresh = !changed && video && refresh_left > 0 && last_sent.elapsed() > Duration::from_millis(250);
+                if changed || want_key || refresh {
+                    if !changed && !want_key {
+                        refresh_left -= 1;
+                    }
+                    let ok = if video {
+                        // 重新订阅（手机建了新解码器）或尺寸变了：新编码器，从关键帧开始
+                        if gen != last_gen || enc.as_ref().map_or(true, |e| e.width != w as usize || e.height != h as usize) {
+                            enc = match H264::new(w as usize, h as usize, fps) {
+                                Ok(e) => Some(e),
+                                Err(e) => {
+                                    log(format!("H.264 编码器创建失败：{e}"));
+                                    None
+                                }
+                            };
                         }
-                        last_hash = hash;
-                        last_gen = gen;
+                        match enc.as_mut() {
+                            Some(e) => {
+                                if want_key {
+                                    e.force_key();
+                                }
+                                let first = e.codec_string() == "?";
+                                match e.encode(&px) {
+                                    Ok(packets) => {
+                                        if first {
+                                            log(format!("H.264 编码：{w}×{h}，{}，编一帧 {} ms", e.codec_string(), t0.elapsed().as_millis()));
+                                        }
+                                        let mut alive = true;
+                                        for p in packets {
+                                            if p[0] != 1 {
+                                                sub.st.lock().unwrap().inflight += 1; // 帧要等回执，配置不用
+                                            }
+                                            alive &= (sub.send)(&p);
+                                        }
+                                        Some(alive)
+                                    }
+                                    Err(err) => {
+                                        log(format!("H.264 编码失败：{err}"));
+                                        enc = None;
+                                        None
+                                    }
+                                }
+                            }
+                            None => None,
+                        }
+                    } else {
+                        enc = None;
+                        let q = if fps > 30 { 45 } else { 60 };
+                        let mut jpg = Vec::with_capacity(px.len() / 10);
+                        let e = jpeg_encoder::Encoder::new(&mut jpg, q);
+                        if e.encode(&px, w as u16, h as u16, jpeg_encoder::ColorType::Bgra).is_ok() {
+                            sub.st.lock().unwrap().inflight += 1;
+                            Some((sub.send)(&jpg))
+                        } else {
+                            None
+                        }
+                    };
+                    match ok {
+                        Some(false) => return, // 连接断了
+                        Some(true) => {
+                            last_hash = hash;
+                            last_gen = gen;
+                            last_sent = Instant::now();
+                        }
+                        None => {}
                     }
                 }
             }
@@ -143,10 +218,10 @@ fn worker(sub: Arc<Sub>) {
                 continue;
             }
         }
-        // 等到下一帧的时间；新订阅、断开就马上走（回执不提前叫醒，帧率不超过设定）
+        // 等到下一帧的时间；新订阅、要关键帧、断开就马上走（回执不提前叫醒，帧率不超过设定）
         let deadline = t0 + interval;
         let mut st = sub.st.lock().unwrap();
-        while st.alive && st.gen == gen {
+        while st.alive && st.gen == gen && !st.want_key {
             let now = Instant::now();
             if now >= deadline {
                 break;

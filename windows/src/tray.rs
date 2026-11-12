@@ -25,6 +25,7 @@ const ID_LOGIN: usize = 3;
 const ID_LOG: usize = 4;
 const ID_QUIT: usize = 5;
 const ID_HELP: usize = 6;
+const ID_ADMIN: usize = 7;
 
 static STATUS: OnceLock<Result<(), String>> = OnceLock::new();
 static TASKBAR_CREATED: OnceLock<u32> = OnceLock::new();
@@ -148,6 +149,11 @@ fn show_menu(hwnd: HWND) {
         item(MF_STRING, ID_HELP, "使用说明…");
         item(MF_STRING | if login_enabled() { MF_CHECKED } else { 0 }, ID_LOGIN, "开机自动启动");
         item(MF_STRING, ID_LOG, "打开日志");
+        if crate::input::self_elevated() {
+            item(MF_STRING | MF_GRAYED, 0, "🛡 正在以管理员身份运行");
+        } else {
+            item(MF_STRING, ID_ADMIN, "以管理员身份重新启动（能操作任务管理器等窗口）");
+        }
         AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
         item(MF_STRING, ID_QUIT, "退出 PC 遥控");
         let mut p = POINT { x: 0, y: 0 };
@@ -173,6 +179,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 ID_COPY => copy_link(),
                 ID_LOGIN => set_login(!login_enabled()),
                 ID_LOG => open(&util::log_path().to_string_lossy()),
+                ID_ADMIN => restart_as_admin(hwnd),
                 ID_HELP => open("https://github.com/TuhongQ/mac-remote/blob/main/windows/README.md"),
                 ID_QUIT => {
                     remove_icon(hwnd);
@@ -196,6 +203,24 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             }
             DefWindowProcW(hwnd, msg, wp, lp)
         }
+    }
+}
+
+/// 用 UAC 提权重新启动自己；新进程等旧的退出后接手（--restart）
+fn restart_as_admin(hwnd: HWND) {
+    let Ok(exe) = std::env::current_exe() else { return };
+    let mut args: Vec<String> = std::env::args().skip(1).filter(|a| a != "--restart").collect();
+    args.push("--restart".into());
+    let (verb, file, params) = (wide("runas"), wide(&exe.to_string_lossy()), wide(&args.join(" ")));
+    let r = unsafe { ShellExecuteW(hwnd, verb.as_ptr(), file.as_ptr(), params.as_ptr(), std::ptr::null(), SW_SHOWNORMAL) };
+    if r as isize > 32 {
+        log("以管理员身份重新启动");
+        unsafe {
+            remove_icon(hwnd);
+            PostQuitMessage(0);
+        }
+    } else {
+        log("没有以管理员身份重新启动（取消了 UAC 确认）");
     }
 }
 
