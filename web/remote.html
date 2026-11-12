@@ -333,6 +333,23 @@ function toast(msg, bad) {
 // iOS 18+ Safari：点一下 switch 开关的 label 会产生轻微触感，网页没有别的震动接口
 function haptic() { if (S.haptic) try { $('#hap').click(); } catch (e) {} }
 
+// ---------- 连的是 Mac 还是 Windows：按钮上的说法跟着换（发出的按键名不变，Windows 端自己翻译）----------
+let hostOS = 'mac';
+function applyOS(m) {
+  hostOS = m.os || 'mac';
+  if (hostOS !== 'windows') return;
+  document.title = 'PC 遥控';
+  const rename = {'调度中心': '任务视图', '应用窗口': '任务视图', '退出 App': '关闭程序', '聚焦': '搜索', '显示桌面': '显示桌面'};
+  document.querySelectorAll('button.k').forEach(b => {
+    const t = b.textContent.trim();
+    if (rename[t]) b.textContent = rename[t];
+    else if (t.startsWith('⌘')) b.textContent = 'Ctrl+' + t.slice(1);
+    if (/^亮度/.test(t)) b.style.visibility = 'hidden';           // Windows 版不支持调亮度
+  });
+  if (m.screen === false) $('#btnScreen').style.display = 'none';  // 还不能看屏幕的版本
+  const hint = $('#hint'); if (hint) hint.innerHTML = hint.innerHTML.replace('调度中心', '任务视图');
+}
+
 // ---------- 连接 ----------
 let pageVer = null;
 let kbIsUp = false;   // iPhone / iPad 屏幕键盘弹出来了   // 网页版本（Mac 发来的 remote.html 指纹），变了就自动刷新
@@ -350,6 +367,7 @@ function connect() {
     if (typeof ev.data !== 'string') { onScreenData(ev.data); return; }   // 二进制 = 屏幕画面
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === 'screen') { if (!m.ok) { toast(m.text, true); setScreen(false); } else codec = m.codec || 'jpeg'; return; }
+    if (m.t === 'hello') applyOS(m);
     if (m.t === 'hello' && m.page) {
       if (pageVer && pageVer !== m.page) { location.reload(); return; }
       pageVer = m.page;
