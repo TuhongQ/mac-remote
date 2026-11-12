@@ -81,9 +81,37 @@ pub fn take_blocked() -> Option<String> {
         "电脑前台的窗口是用管理员权限运行的（比如任务管理器），Windows 不允许普通程序操作它。\
          切到别的窗口，或在托盘菜单里选「以管理员身份重新启动」"
             .into()
+    } else if secure_desktop() {
+        "电脑在锁屏或 UAC 确认窗口：屏幕已点亮，但 Windows 不允许程序输入密码、点确认，要在电脑上操作（或用 Windows Hello 人脸 / 指纹解锁）".into()
     } else {
-        "Windows 拒绝了模拟的鼠标键盘（可能在锁屏或 UAC 确认窗口），回到桌面后再试".into()
+        "Windows 拒绝了模拟的鼠标键盘，回到桌面后再试".into()
     })
+}
+
+/// 现在显示的是锁屏 / UAC 安全桌面（普通程序打不开这个桌面）
+fn secure_desktop() -> bool {
+    use windows_sys::Win32::System::StationsAndDesktops::{CloseDesktop, OpenInputDesktop, DESKTOP_READOBJECTS};
+    let d = unsafe { OpenInputDesktop(0, 0, DESKTOP_READOBJECTS) };
+    if d.is_null() {
+        return true;
+    }
+    unsafe { CloseDesktop(d) };
+    false
+}
+
+/// 点亮屏幕（熄屏时第一下触摸板就能叫醒），也防止遥控时电脑因为「没人碰」而熄屏。最多 3 秒一次
+pub fn wake() {
+    use std::time::{Duration, Instant};
+    use windows_sys::Win32::System::Power::{SetThreadExecutionState, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED};
+    static LAST: Mutex<Option<Instant>> = Mutex::new(None);
+    {
+        let mut l = LAST.lock().unwrap();
+        if l.map_or(false, |t| t.elapsed() < Duration::from_secs(3)) {
+            return;
+        }
+        *l = Some(Instant::now());
+    }
+    unsafe { SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED) };
 }
 
 /// 前台窗口是管理员权限、而自己不是（这时发出去的输入会被系统悄悄丢掉）。结果缓存 1 秒

@@ -359,7 +359,11 @@ fn s<'a>(v: &'a Value, k: &str) -> Option<&'a str> {
 /// 执行一条遥控消息（输入动作），格式见 docs/开发说明.md 第 5 节
 pub fn handle_message(m: &Value, ip: &str, reply: &mut dyn FnMut(Value)) {
     let _g = INPUT_LOCK.lock();
-    match s(m, "t").unwrap_or("") {
+    let t = s(m, "t").unwrap_or("");
+    if !matches!(t, "ping" | "") {
+        input::wake();
+    }
+    match t {
         "move" => input::move_by(num(m, "dx"), num(m, "dy")),
         "moveTo" => {
             let (x, y) = input::point_in_primary(num(m, "x"), num(m, "y"));
@@ -612,6 +616,7 @@ fn on_ws_message(m: Value, ws: &Arc<Ws>, ip: &str, itx: &mpsc::Sender<Value>) {
     match s(&m, "t").unwrap_or("") {
         "screen" => {
             if m.get("on").and_then(|x| x.as_bool()) == Some(true) {
+                input::wake(); // 熄屏时看到的是黑屏，先点亮
                 let video = s(&m, "codec") == Some("h264");
                 ws.send(&json!({"t": "screen", "ok": true, "codec": if video { "h264" } else { "jpeg" }}));
                 let (w, h) = screen::info();

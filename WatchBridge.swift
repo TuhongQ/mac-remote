@@ -21,6 +21,7 @@ import ApplicationServices
 import CoreImage
 import CryptoKit
 import Foundation
+import IOKit.pwr_mgt
 import Network
 import ScreenCaptureKit
 import ServiceManagement
@@ -799,6 +800,7 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
     if m["t"] as? String == "screen" {
         let fitter = FitDisplay.shared, me = ObjectIdentifier(s)
         if m["on"] as? Bool == true {
+            Waker.poke(ip: s.ip, reply: { s.send($0) })    // 屏幕睡着时看到的是黑屏，先点亮
             ScreenStreamer.shared.subscribe(s, width: Int(num(m["w"])), fps: Int(num(m["fps"])),
                                             ack: m["ack"] as? Bool == true, video: m["codec"] as? String == "h264")
             if let f = m["fit"] as? [String: Any], num(f["w"]) > 0, num(f["h"]) > 0 {
@@ -849,8 +851,43 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
     }
 }
 
+/// 点亮屏幕：发出去的模拟鼠标键盘不一定能唤醒睡着的显示器，要明确告诉系统「有人在用」（等于碰了一下真鼠标）
+enum Waker {
+    static let lock = NSLock()
+    static var last = Date.distantPast, lastHint = Date.distantPast
+    static var assertion: IOPMAssertionID = 0
+    static let inputTypes: Set<String> = ["move", "click", "down", "up", "scroll", "key", "text", "cmd",
+                                          "moveTo", "clickAt", "pen", "mission"]
+
+    static func poke(ip: String, reply: ([String: Any]) -> Void) {
+        let asleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
+        lock.lock()
+        let now = Date()
+        // 屏幕醒着时 5 秒报一次就够了（顺便防止遥控时电脑因为「没人碰」而睡眠）
+        guard asleep || now.timeIntervalSince(last) > 5 else { lock.unlock(); return }
+        last = now
+        IOPMAssertionDeclareUserActivity("PC 遥控：手机在操作" as CFString, kIOPMUserActiveLocal, &assertion)
+        var hint = false
+        if asleep && now.timeIntervalSince(lastHint) > 20 { lastHint = now; hint = true }
+        lock.unlock()
+        guard asleep else { return }
+        let locked = screenLocked()
+        log("\(ip) 屏幕在睡眠，已唤醒\(locked ? "（锁屏中）" : "")")
+        if hint && locked {
+            reply(["t": "reply", "ok": true, "text": "已点亮屏幕。Mac 锁着：打开键盘输入开机密码，按回车解锁"])
+        }
+    }
+
+    static func screenLocked() -> Bool {
+        guard let d = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return d["CGSSessionScreenIsLocked"] as? Bool == true
+    }
+}
+
 func handleRemote(_ m: [String: Any], ip: String, reply: ([String: Any]) -> Void) {
-    switch m["t"] as? String ?? "" {
+    let t = m["t"] as? String ?? ""
+    if Waker.inputTypes.contains(t) { Waker.poke(ip: ip, reply: reply) }
+    switch t {
     case "move":
         moveMouse(dx: num(m["dx"]), dy: num(m["dy"]))
     case "click":
