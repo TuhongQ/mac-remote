@@ -98,11 +98,9 @@ cargo build --release
 
 ```bash
 rustup target add x86_64-pc-windows-gnu
-cargo check --target x86_64-pc-windows-gnu      # 只检查，不需要链接器
-# 出 exe 需要 MinGW 链接器：用 Zig 当链接器最省事
-cargo install cargo-zigbuild                     # 并装好 zig（https://ziglang.org/download/）
-cargo zigbuild --release --target x86_64-pc-windows-gnu
-# 结果：target/x86_64-pc-windows-gnu/release/PCRemote.exe
+cargo install cargo-zigbuild        # 用 Zig 当链接器（Homebrew 的 MinGW 在新系统上可能装不了）
+# 下载 zig 解压到 ~/.local/zig/（https://ziglang.org/download/），然后：
+./build-exe.sh                      # 结果：../build/PCRemote.exe（约 700 KB，只依赖系统自带的 DLL）
 ```
 
 实现要点：
