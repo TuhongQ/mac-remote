@@ -18,6 +18,12 @@ use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS
 use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_OK};
 
 fn main() {
+    // 哪个线程出错都写进日志（只结束那个线程，不让整个程序悄悄退出）
+    std::panic::set_hook(Box::new(|info| {
+        let name = std::thread::current().name().unwrap_or("?").to_string();
+        log(format!("❌ 程序出错（线程 {name}）：{info}"));
+    }));
+
     // 按物理像素工作：光标坐标、屏幕范围都不受系统缩放影响
     unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
 

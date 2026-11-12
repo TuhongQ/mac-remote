@@ -138,7 +138,11 @@ fn show_menu(hwnd: HWND) {
         };
         let port = CONFIG.get().unwrap().port;
         match STATUS.get() {
-            Some(Ok(())) => item(MF_STRING | MF_GRAYED, 0, &format!("✅ 网页遥控：{}:{port}", util::primary_ip())),
+            Some(Ok(())) => {
+                item(MF_STRING | MF_GRAYED, 0, &format!("✅ 网页遥控：{}:{port}", util::primary_ip()));
+                let hp = crate::server::HTTPS_PORT.load(std::sync::atomic::Ordering::Relaxed);
+                item(MF_STRING | MF_GRAYED, 0, &if hp > 0 { format!("✅ 视频模式（HTTPS）：端口 {hp}") } else { "⚠️ HTTPS 没有启动，只能用图片模式（见日志）".to_string() });
+            }
             Some(Err(e)) => item(MF_STRING | MF_GRAYED, 0, &format!("❌ {e}")),
             None => {}
         }
