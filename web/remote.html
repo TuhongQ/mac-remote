@@ -317,8 +317,10 @@ try {
 // ---------- 设备 ----------
 const IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !/iPhone|Android/.test(navigator.userAgent));
 if (IPAD) document.body.classList.add('ipad');
-if (S.immersive === undefined) S.immersive = IPAD;   // iPad 默认全屏看屏幕
-if (S.fitMac === undefined) S.fitMac = IPAD;         // iPad 默认让 Mac 适配 iPad 的屏幕比例
+if (S.immersive === undefined) S.immersive = true;   // 默认全屏看屏幕
+if (S.fitMac === undefined) S.fitMac = true;         // 默认让 Mac 适配本机的屏幕比例
+// iPhone 也默认全屏 + 让 Mac 适配手机比例（横过来看，Mac 变成和 iPhone 一样的宽屏）。以前存过的旧默认值改一次
+if (!S.fitPhone) { S.fitPhone = 1; if (!IPAD) { S.immersive = true; S.fitMac = true; } saveS(); }
 if (S.scribble === undefined) S.scribble = true;
 if (S.touchMode === undefined) S.touchMode = IPAD ? 'touch' : 'pad';   // 看屏幕时：触摸屏（点哪操作哪）/ 触控板
 if (navigator.standalone || matchMedia('(display-mode: standalone)').matches) document.body.classList.add('standalone');
