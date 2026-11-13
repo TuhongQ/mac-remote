@@ -275,6 +275,7 @@ body.imm.pin .sheet.open{right:56px}
       <button class="k" data-cmd="大声">音量 ＋</button>
       <button class="k" data-cmd="调暗">亮度 −</button>
       <button class="k" data-cmd="调亮">亮度 ＋</button>
+      <button class="k mac-only" data-act="unlock">🔓 解锁 Mac</button>
     </div>
   </div>
 
@@ -290,6 +291,7 @@ body.imm.pin .sheet.open{right:56px}
     <label>看屏幕时自动横屏 <input type="checkbox" id="sAutoLand"></label>
     <div class="opt">看屏幕时的操作方式 <span class="seg" id="segMode"><button data-v="pad">触控板</button><button data-v="touch">触摸屏</button></span></div>
     <label>看屏幕时全屏（按钮收进小圆点） <input type="checkbox" id="sImm"></label>
+    <label class="mac-only">Mac 锁屏时自动解锁（先在 Mac 菜单栏设置密码） <input type="checkbox" id="sUnlock"></label>
     <label>全屏时右边按钮一直显示（不自动收起） <input type="checkbox" id="sPin"></label>
     <label>全屏时 Mac 改用本机屏幕比例（铺满不留黑边） <input type="checkbox" id="sFit"></label>
     <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
@@ -336,6 +338,7 @@ if (S.immersive === undefined) S.immersive = true;   // 默认全屏看屏幕
 if (S.fitMac === undefined) S.fitMac = true;         // 默认让 Mac 适配本机的屏幕比例
 // iPhone 也默认全屏 + 让 Mac 适配手机比例（横过来看，Mac 变成和 iPhone 一样的宽屏）。以前存过的旧默认值改一次
 if (!S.fitPhone) { S.fitPhone = 1; if (!IPAD) { S.immersive = true; S.fitMac = true; } saveS(); }
+if (S.autoUnlock === undefined) S.autoUnlock = true;   // 只有在 Mac 上设了密码才会生效
 if (S.pinSide === undefined) S.pinSide = !IPAD;       // iPhone 默认按钮栏一直显示
 if (S.scribble === undefined) S.scribble = true;
 if (S.touchMode === undefined) S.touchMode = IPAD ? 'touch' : 'pad';   // 看屏幕时：触摸屏（点哪操作哪）/ 触控板
@@ -357,6 +360,7 @@ function applyOS(m) {
   hostOS = m.os || 'mac';
   if (hostOS !== 'windows') return;
   document.title = 'PC 遥控';
+  document.querySelectorAll('.mac-only').forEach(e => e.style.display = 'none');   // Windows 不能遥控解锁
   const rename = {'调度中心': '任务视图', '应用窗口': '任务视图', '退出 App': '关闭程序', '聚焦': '搜索', '显示桌面': '显示桌面'};
   document.querySelectorAll('button.k').forEach(b => {
     const t = b.textContent.trim();
@@ -386,7 +390,7 @@ function connect() {
     if (typeof ev.data !== 'string') { onScreenData(ev.data); return; }   // 二进制 = 屏幕画面
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === 'screen') { if (!m.ok) { toast(m.text, true); setScreen(false); } else codec = m.codec || 'jpeg'; return; }
-    if (m.t === 'hello') applyOS(m);
+    if (m.t === 'hello') { applyOS(m); if (m.locked) onLocked(m.unlock); }
     if (m.t === 'hello' && m.page) {
       if (pageVer && pageVer !== m.page) { location.reload(); return; }
       pageVer = m.page;
@@ -401,6 +405,8 @@ function connect() {
       if (!m.ok) toast('Mac 没能改成这块屏幕的比例，先按原比例显示', true);
     } else if (m.t === 'textFocus') {
       if (m.id === penTapId && m.editable && S.scribble) hwOpen();
+    } else if (m.t === 'locked') {
+      onLocked(m.unlock);
     } else if (m.t === 'reply') {
       toast(m.text, !m.ok);
     } else if (m.t === 'error') {
@@ -859,12 +865,20 @@ $('#btnKb').addEventListener('click', () => {
   openSheet('kb'); ta.focus();     // 必须在点击回调里同步 focus，iOS 才会弹键盘
 });
 
+// Mac 锁屏了：设了自动解锁密码就让 Mac 解锁，没设就告诉用户怎么办
+function onLocked(canUnlock) {
+  if (canUnlock && S.autoUnlock) send({t: 'unlock', auto: true});
+  else if (canUnlock) toast('Mac 锁着：点「快捷」里的「🔓 解锁 Mac」');
+  else toast('Mac 锁着：打开键盘输入开机密码，按回车解锁（也可以在 Mac 菜单栏设置自动解锁）');
+}
+
 // 快捷键 / 指令按钮；带 data-repeat 的按住会连发
 document.querySelectorAll('[data-key],[data-cmd],[data-act]').forEach(b => {
   const fire = () => {
     if (b.dataset.key) send({t: 'key', key: b.dataset.key});
     else if (b.dataset.cmd) send({t: 'cmd', text: b.dataset.cmd, quiet: true});
     else if (b.dataset.act === 'mission') send({t: 'mission'});
+    else if (b.dataset.act === 'unlock') send({t: 'unlock'});
   };
   let timer = null, startT = null;
   const stop = () => { clearTimeout(startT); clearInterval(timer); timer = startT = null; };
@@ -1421,6 +1435,7 @@ const bind = (id, key, isBool) => {
 bind('#sSpeed', 'speed'); bind('#sScroll', 'scroll'); bind('#sNatural', 'natural', true);
 bind('#sInertia', 'inertia', true); bind('#sPaste', 'paste', true); bind('#sHaptic', 'haptic', true);
 bind('#sImm', 'immersive', true); $('#sImm').addEventListener('change', updateLayout);
+bind('#sUnlock', 'autoUnlock', true);
 bind('#sPin', 'pinSide', true); $('#sPin').addEventListener('change', updateLayout);
 bind('#sFit', 'fitMac', true); $('#sFit').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 bind('#sScribble', 'scribble', true);

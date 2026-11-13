@@ -23,6 +23,7 @@ import CryptoKit
 import Foundation
 import IOKit.pwr_mgt
 import Network
+import OpenDirectory
 import ScreenCaptureKit
 import ServiceManagement
 import VideoToolbox
@@ -647,7 +648,8 @@ final class WebSocketSession {
         Self.liveLock.lock(); Self.live[ObjectIdentifier(self)] = self; Self.liveLock.unlock()
         // page = 网页文件的指纹：Mac 更新了网页，已经打开的手机网页重连时会自动刷新
         let page = webFile("remote.html").map { SHA256.hash(data: $0).prefix(6).map { String(format: "%02x", $0) }.joined() } ?? ""
-        send(["t": "hello", "https": httpsReady ? Int(httpsPort) : 0, "page": page])
+        send(["t": "hello", "https": httpsReady ? Int(httpsPort) : 0, "page": page,
+              "locked": Waker.screenLocked(), "unlock": AutoUnlock.available])
         buf.append(contentsOf: leftover)
         parse()
         read()
@@ -840,6 +842,10 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
         }
         return
     }
+    if m["t"] as? String == "unlock" {
+        AutoUnlock.unlock(ip: s.ip, auto: m["auto"] as? Bool == true, reply: { [weak s] in s?.send($0) })
+        return
+    }
     handleRemote(m, ip: s.ip, reply: { s.send($0) })
     if m["t"] as? String == "axAt" {
         let b = CGDisplayBounds(ScreenStreamer.shared.displayID)
@@ -899,13 +905,93 @@ enum Waker {
         let locked = screenLocked()
         log("\(ip) 屏幕在睡眠，已唤醒\(locked ? "（锁屏中）" : "")")
         if hint && locked {
-            reply(["t": "reply", "ok": true, "text": "已点亮屏幕。Mac 锁着：打开键盘输入开机密码，按回车解锁"])
+            reply(["t": "locked", "unlock": AutoUnlock.available])   // 网页决定：自动解锁，或提示怎么解锁
         }
     }
 
     static func screenLocked() -> Bool {
         guard let d = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
         return d["CGSSessionScreenIsLocked"] as? Bool == true
+    }
+}
+
+/// 自动解锁：开机密码存在 Mac 的钥匙串里（不经过网络、不存在手机上）。手机请求解锁时，Mac 自己在锁屏界面输入密码
+enum AutoUnlock {
+    static let service = "WatchBridge.autounlock"
+    private static let lock = NSLock()
+    private static var cached: String??          // nil = 还没读过钥匙串
+    private static var busy = false, failures = 0, lastTry = Date.distantPast
+
+    static var available: Bool { password() != nil }
+
+    static func password() -> String? {
+        lock.lock(); defer { lock.unlock() }
+        if let c = cached { return c }
+        var out: CFTypeRef?
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: NSUserName(), kSecReturnData as String: true]
+        let pw = SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess
+            ? (out as? Data).flatMap { String(data: $0, encoding: .utf8) } : nil
+        cached = .some(pw)
+        return pw
+    }
+
+    static func save(_ pw: String?) -> Bool {
+        let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                   kSecAttrAccount as String: NSUserName()]
+        SecItemDelete(base as CFDictionary)
+        var ok = true
+        if let pw = pw {
+            var add = base
+            add[kSecValueData as String] = Data(pw.utf8)
+            add[kSecAttrLabel as String] = "Mac 遥控：自动解锁"
+            ok = SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+        }
+        lock.lock(); cached = .some(ok ? pw : nil); failures = 0; lock.unlock()
+        return ok
+    }
+
+    /// 检查是不是当前用户的开机密码（存错了的话每次解锁都会输错）
+    static func verify(_ pw: String) -> Bool {
+        guard let node = try? ODNode(session: ODSession.default(), type: ODNodeType(kODNodeTypeLocalNodes)),
+              let rec = try? node.record(withRecordType: kODRecordTypeUsers, name: NSUserName(), attributes: nil)
+        else { return false }
+        return (try? rec.verifyPassword(pw)) != nil
+    }
+
+    static func unlock(ip: String, auto: Bool, reply: @escaping ([String: Any]) -> Void) {
+        guard Waker.screenLocked() else {
+            lock.lock(); failures = 0; lock.unlock()
+            if !auto { reply(["t": "reply", "ok": true, "text": "Mac 没有锁屏"]) }
+            return
+        }
+        guard let pw = password() else {
+            reply(["t": "reply", "ok": false, "text": "还没设置自动解锁：在 Mac 菜单栏点「Mac 遥控」图标 →「自动解锁密码…」"])
+            return
+        }
+        lock.lock()
+        let now = Date()
+        // 连续两次没解开就停下（防止反复输错被系统锁定），在 Mac 上手动解锁一次后恢复
+        let refuse = busy ? "" : failures >= 2 ? "自动解锁连续失败两次，已暂停：请在 Mac 上解锁一次" :
+            now.timeIntervalSince(lastTry) < 8 ? "" : nil
+        if refuse == nil { busy = true; lastTry = now }
+        lock.unlock()
+        if let r = refuse { if !r.isEmpty { reply(["t": "reply", "ok": false, "text": r]) }; return }
+        reply(["t": "reply", "ok": true, "text": "正在解锁 Mac……"])
+        DispatchQueue.global().async {
+            var id: IOPMAssertionID = 0
+            IOPMAssertionDeclareUserActivity("PC 遥控：解锁" as CFString, kIOPMUserActiveLocal, &id)
+            Thread.sleep(forTimeInterval: 1.2)       // 等屏幕亮起、密码框出现
+            pressCombo("cmd+a"); postKey(51)        // 清掉密码框里可能已有的字
+            typeByKeys(pw)
+            postKey(36)
+            var ok = false
+            for _ in 0..<12 where !ok { Thread.sleep(forTimeInterval: 0.5); ok = !Waker.screenLocked() }
+            lock.lock(); busy = false; failures = ok ? 0 : failures + 1; lock.unlock()
+            log("\(ip) 自动解锁\(ok ? "成功" : "没成功")")
+            reply(ok ? ["t": "reply", "ok": true, "text": "Mac 已解锁"]
+                     : ["t": "reply", "ok": false, "text": "没能解锁：锁屏界面可能要先选用户。可以用键盘自己输入密码"])
+        }
     }
 }
 
@@ -2184,6 +2270,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         updateIcon()
+        DispatchQueue.global().async { _ = AutoUnlock.available }   // 先读一次钥匙串（要是弹授权框，趁现在人在电脑前）
 
         startListener()
         DispatchQueue.global().async { startTLSListener() }  // 第一次要生成证书，放后台
@@ -2302,6 +2389,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("启用 Apple TV 遥控器", #selector(toggleAtv), on: atv.enabled)
             item("Apple TV 遥控器设置（触控板模式、速度）…", #selector(openAtvSettings))
         }
+        item(AutoUnlock.available ? "自动解锁：已设置密码（点这里修改或清除）…" : "设置自动解锁密码…", #selector(setUnlockPassword),
+             on: AutoUnlock.available)
         item("使用说明…", #selector(showHelp))
         menu.addItem(.separator())
         if #available(macOS 13.0, *) {
@@ -2317,6 +2406,34 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = CGRequestScreenCaptureAccess()
         if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(u)
+        }
+    }
+    @objc func setUnlockPassword() {
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "自动解锁"
+        a.informativeText = "输入这台 Mac 的开机密码。手机连上时如果 Mac 锁着，会自动用它解锁。\n\n"
+            + "密码只存在这台 Mac 的钥匙串里，不会发到手机或网络上。\n"
+            + "注意：拿到遥控链接（带 token）的设备都能解锁这台 Mac，链接别给别人。"
+        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.placeholderString = "开机密码"
+        a.accessoryView = field
+        a.addButton(withTitle: "保存")
+        a.addButton(withTitle: "取消")
+        if AutoUnlock.available { a.addButton(withTitle: "清除密码") }
+        a.window.initialFirstResponder = field
+        switch a.runModal() {
+        case .alertFirstButtonReturn:
+            let pw = field.stringValue
+            guard !pw.isEmpty else { return }
+            guard AutoUnlock.verify(pw) else {
+                let e = NSAlert(); e.messageText = "密码不对"; e.informativeText = "这不是当前用户「\(NSUserName())」的开机密码，没有保存。"
+                e.runModal(); return
+            }
+            if AutoUnlock.save(pw) { log("已设置自动解锁密码") }
+        case .alertThirdButtonReturn:
+            _ = AutoUnlock.save(nil); log("已清除自动解锁密码")
+        default: break
         }
     }
     @objc func showQR() { QRWindow.shared.show() }
