@@ -819,7 +819,7 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
     if m["t"] as? String == "client" {
         func yn(_ k: String) -> String { m[k] as? Bool == true ? "是" : (m[k] is NSNull || m[k] == nil ? "?" : "否") }
         log("\(s.ip) 设备：\(m["dev"] ?? "?")，HTTPS \(yn("secure"))，WebCodecs \(yn("webcodecs"))，"
-            + "证书可用 \(yn("https"))，主屏幕 App \(yn("standalone"))，像素比 \(m["dpr"] ?? "?")，\(m["ua"] ?? "")，\(m["geo"] ?? "")")
+            + "证书可用 \(yn("https"))\(m["httpsWhy"].map { "（\($0)）" } ?? "")，主屏幕 App \(yn("standalone"))，像素比 \(m["dpr"] ?? "?")，\(m["ua"] ?? "")，\(m["geo"] ?? "")")
         return
     }
     if m["t"] as? String == "screen" {
@@ -1973,6 +1973,17 @@ func startTLSListener() {
         log("无法监听 HTTPS 端口 \(httpsPort)"); return
     }
     l.newConnectionHandler = { conn in
+        let ip = peerIP(conn)
+        var ready = false
+        conn.stateUpdateHandler = { st in
+            switch st {
+            case .ready: ready = true
+            case .failed(let e), .waiting(let e):
+                // 握手没成功：几乎都是这台设备没装 / 没信任证书（设备会直接拒绝），写日志方便排查
+                if !ready { noteTLSFailure(ip, e) }
+            default: break
+            }
+        }
         conn.start(queue: .global())
         receive(conn, Data())
     }
@@ -1991,6 +2002,28 @@ func startTLSListener() {
     tlsListener = l
 }
 var tlsListener: NWListener?
+
+private var tlsFailLogged: [String: Date] = [:]
+private let tlsFailLock = NSLock()
+func noteTLSFailure(_ ip: String, _ e: NWError) {
+    tlsFailLock.lock()
+    let last = tlsFailLogged[ip] ?? .distantPast
+    let now = Date()
+    if now.timeIntervalSince(last) > 60 { tlsFailLogged[ip] = now }
+    tlsFailLock.unlock()
+    guard now.timeIntervalSince(last) > 60 else { return }
+    log("⚠️ \(ip) 的 HTTPS 握手失败：\(e)（多半是这台设备没装 Mac 的证书，或「证书信任设置」里没打开）")
+}
+
+func peerIP(_ conn: NWConnection) -> String {
+    if case let .hostPort(host, _) = conn.endpoint {
+        var h = "\(host)"
+        if let pct = h.firstIndex(of: "%") { h = String(h[..<pct]) }
+        if h.hasPrefix("::ffff:") { h = String(h.dropFirst(7)) }
+        return h
+    }
+    return "?"
+}
 
 // MARK: Apple TV 遥控器（后台运行 atv-core 的接收端 atv-cli）
 

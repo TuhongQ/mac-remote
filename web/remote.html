@@ -1194,19 +1194,29 @@ function videoError(e) {
 }
 
 // http 打开时，试试 HTTPS 能不能用（装过并信任了 Mac 的证书才行）；能用就自动换过去，才有视频模式
-let httpsPort = 0, httpsOK = null;
+let httpsPort = 0, httpsOK = null, httpsWhy = '', probing = false;
 async function probeHttps(port) {
-  if (httpsOK !== null) return;
-  httpsPort = port; httpsOK = false;
-  const ac = new AbortController(); setTimeout(() => ac.abort(), 2500);
+  if (httpsOK === true || probing) return;
+  httpsPort = port; probing = true;
+  const ac = new AbortController(), t0 = Date.now(); let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; ac.abort(); }, 4000);
   try {
     await fetch(`https://${location.hostname}:${port}/ping`, {mode: 'no-cors', cache: 'no-store', signal: ac.signal});
-    httpsOK = true;
+    httpsOK = true; httpsWhy = '';
     if (S.video) location.replace(`https://${location.hostname}:${port}/remote?token=${encodeURIComponent(TOKEN)}`);
-  } catch (e) {}
+  } catch (e) {
+    httpsOK = false;
+    // 很快就失败 = 连上了但证书不被信任；超时 = 连不上 HTTPS 端口
+    httpsWhy = timedOut ? `${location.hostname}:${port} 连不上（超时）` : `${location.hostname}:${port} 被拒绝，${Date.now() - t0} ms：证书没装或没信任`;
+  }
+  clearTimeout(timer); probing = false;
   showVideoNote();
   reportClient();
 }
+// 装好证书回到这个页面时自动再试一次，不用手动刷新
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && httpsOK === false && location.protocol === 'http:') probeHttps(httpsPort);
+});
 function modeLabel() {
   if (codec === 'h264') return '视频';
   if (!S.video) return '图片';
@@ -1217,7 +1227,7 @@ function modeLabel() {
 // 告诉 Mac 这台设备的情况，写进日志方便排查
 function reportClient() {
   send({t: 'client', dev: IPAD ? 'iPad' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'other',
-        secure: window.isSecureContext, webcodecs: typeof VideoDecoder === 'function', https: httpsOK,
+        secure: window.isSecureContext, webcodecs: typeof VideoDecoder === 'function', https: httpsOK, httpsWhy: httpsWhy || undefined,
         standalone: document.body.classList.contains('standalone'), dpr: window.devicePixelRatio || 1,
         ua: ((navigator.userAgent.match(/OS [\d_]+/) || [''])[0] + ' ' + (navigator.userAgent.match(/Version\/[\d.]+/) || [''])[0]).trim(),
         geo: geometry()});
@@ -1236,7 +1246,7 @@ function showVideoNote() {
   if (VIDEO_OK) { n.textContent = S.video ? '已开启：H.264 硬件解码' : '已关闭：用 JPEG 图片'; return; }
   if (window.isSecureContext) { n.textContent = '这个浏览器不支持 WebCodecs，只能用图片模式。'; return; }
   const win = hostOS === 'windows';
-  n.innerHTML = `视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载${win ? '电脑' : ' Mac '}的证书</a>，`
+  n.innerHTML = (httpsWhy ? `刚才试了 HTTPS：${httpsWhy}。` : '') + `视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载${win ? '电脑' : ' Mac '}的证书</a>，`
     + `到「设置 → 已下载描述文件」安装；②「设置 → 通用 → 关于本机 → 证书信任设置」打开「${win ? 'PC 遥控' : 'Mac 遥控'} 本机证书」；③回来刷新本页，会自动换成 HTTPS。`;
 }
 
