@@ -104,7 +104,7 @@ canvas.view{transform-origin:0 0}
 body.screen-on #cur.on{display:block}
 body.screen-on #hint,body.screen-on #legend{display:none}
 body.screen-on #pad{background:#000}
-#fps{position:absolute;top:8px;left:10px;font-size:10.5px;color:rgba(255,255,255,.45);pointer-events:none;display:none}
+#fps{position:absolute;top:8px;left:10px;font-size:10.5px;color:rgba(255,255,255,.45);pointer-events:none;display:none;white-space:pre-line}
 body.screen-on #fps{display:block}
 #scrClose{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(30,32,38,.75);color:#ddd;display:none;align-items:center;justify-content:center;padding:0}
 /* 看屏幕时的横屏布局：左边大画面，右边一列按钮 */
@@ -318,7 +318,7 @@ body.imm.pin .sheet.open{right:56px}
     <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
     <label>视频模式（更流畅、更省流量） <input type="checkbox" id="sVideo"></label>
     <div class="note" id="videoNote" style="margin:0 0 6px"></div>
-    <label>屏幕帧率 <span id="fpsVal" style="color:var(--dim);font-size:13px;min-width:44px;text-align:right"></span><input type="range" id="sFps" min="10" max="60" step="5"></label>
+    <label>屏幕帧率 <span id="fpsVal" style="color:var(--dim);font-size:13px;min-width:44px;text-align:right"></span><input type="range" id="sFps" min="10" max="120" step="5"></label>
     <label>Token <input type="text" id="sToken" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <div class="note">在 Safari 里点「分享 → 添加到主屏幕」，之后像 App 一样全屏打开。若某些 App 收不到文字，打开「用剪贴板粘贴文字」。</div>
   </div>
@@ -415,7 +415,11 @@ function connect() {
     lastRx = performance.now();
     if (typeof ev.data !== 'string') { onScreenData(ev.data); return; }   // 二进制 = 屏幕画面
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-    if (m.t === 'screen') { if (!m.ok) { toast(m.text, true); setScreen(false); } else codec = m.codec || 'jpeg'; return; }
+    if (m.t === 'screen') {
+      if (!m.ok) { toast(m.text, true); setScreen(false); }
+      else { codec = m.codec || 'jpeg'; hostStatsOK = m.stats === true; }
+      return;
+    }
     if (m.t === 'hello') { applyOS(m); if (m.locked) onLocked(m.unlock); }
     if (m.t === 'hello' && m.page) {
       if (pageVer && pageVer !== m.page) { location.reload(); return; }
@@ -430,7 +434,9 @@ function connect() {
     } else if (m.t === 'curImg') {
       onCursorImg(m);
     } else if (m.t === 'screenInfo') {
-      scrInfo = {w: m.w || 0, h: m.h || 0};
+      scrInfo = {w: m.w || 0, h: m.h || 0, hz: m.hz || 0};
+    } else if (m.t === 'screenStats') {
+      readHostStats(m);
     } else if (m.t === 'fit') {
       if (!m.ok) toast('Mac 没能改成这块屏幕的比例，先按原比例显示', true);
     } else if (m.t === 'textFocus') {
@@ -612,7 +618,7 @@ const penTouch = e => pen && [...e.changedTouches].find(t => t.identifier === pe
 // 点一下 = 点那里；连点 = 双击；滑动 = 滚动（内容跟着手指走）；长按 = 右键，长按后拖 = 按住拖；
 // 双指：滑动滚动、轻点右键、捏合缩放；三指：拖动 / 轻点中键；四指：切换桌面、调度中心
 const touchMode = () => screenOn && S.touchMode === 'touch' && view.width > 0;
-let scrInfo = {w: 0, h: 0};      // Mac 屏幕的点数（Mac 开始截屏时发来）
+let scrInfo = {w: 0, h: 0, hz: 0};      // Mac 屏幕的点数（Mac 开始截屏时发来）
 // 手指在画面上走 1 个 CSS 像素，相当于 Mac 上走几个点
 function macPerPx() {
   if (!view.width) return 1;
@@ -1109,7 +1115,18 @@ $('#btnVoice').addEventListener('click', () => {
 // ---------- 屏幕镜像 ----------
 // 两种画面：HTTPS 下用 H.264 视频（Mac 硬件编码 → 手机 WebCodecs 硬件解码，60 帧也流畅、流量小）；
 // 普通 http 网页没有 WebCodecs，就用 JPEG 图片。都走同一条 WebSocket，只在画面变化时才有新帧
-let screenOn = false, frames = 0;
+let screenOn = false, frames = 0, receivedFrames = 0;
+let hostStatsOK = false, statsID = 0, statsAfter = 0, lastHostStats = null, hostRates = null;
+function readHostStats(m) {
+  if (!screenOn || !hostStatsOK || m.id <= statsAfter || m.id > statsID) return;
+  statsAfter = m.id;
+  if (lastHostStats && m.at > lastHostStats.at && m.captured >= lastHostStats.captured && m.encoded >= lastHostStats.encoded) {
+    const seconds = m.at - lastHostStats.at;
+    hostRates = {capture: Math.round((m.captured - lastHostStats.captured) / seconds),
+                 encode: Math.round((m.encoded - lastHostStats.encoded) / seconds), at: performance.now()};
+  }
+  lastHostStats = m;
+}
 const scr = $('#screen');
 // 看屏幕时横屏显示：手机真的横过来就直接用横屏布局；竖着拿就把整个界面转 90°。
 // 打字时（键盘面板打开）恢复竖屏，因为 iPhone 的键盘总是按手机实际方向弹出来。
@@ -1134,15 +1151,21 @@ function updateLayout() {
 }
 function captureWidth() {
   const w = pad.clientWidth, h = pad.clientHeight;
-  return Math.min(VIDEO_OK && S.video ? vMaxW : 1800, Math.round(Math.min(w, h * 1.6) * (window.devicePixelRatio || 2)));
+  return Math.min(VIDEO_OK && S.video ? Math.min(vMaxW, screenTargetFps() > 60 ? 1920 : 2880) : 1800, Math.round(Math.min(w, h * 1.6) * (window.devicePixelRatio || 2)));
 }
 const VIDEO_OK = window.isSecureContext && typeof VideoDecoder === 'function';
+function screenTargetFps() {
+  return VIDEO_OK && S.video ? S.fps : Math.min(S.fps, 60);
+}
 let codec = 'jpeg';
 function subscribeScreen() {
+  hostStatsOK = false; statsAfter = statsID; lastHostStats = null; hostRates = null;
+  frames = 0; receivedFrames = 0; fpsSampleAt = performance.now();
+  scrInfo.hz = 0;
   resetVideo();
   clearTimeout(subscribeScreen.t1); clearTimeout(subscribeScreen.t2);
   subscribeScreen.t1 = setTimeout(reportVideo, 3000); subscribeScreen.t2 = setTimeout(reportVideo, 8000);
-  const msg = {t: 'screen', on: true, w: captureWidth(), fps: S.fps, ack: true, codec: VIDEO_OK && S.video ? 'h264' : 'jpeg',
+  const msg = {t: 'screen', on: true, w: captureWidth(), fps: screenTargetFps(), ack: true, codec: VIDEO_OK && S.video ? 'h264' : 'jpeg',
                cursor: !!S.localCursor && hostOS !== 'windows'};
   CUR.on = false; $('#cur').classList.remove('on'); pendMoves.length = 0;   // 等 Mac 报了光标位置再画
   const f = fitSize();
@@ -1180,8 +1203,13 @@ let decoding = false, nextBlob = null;
 function onScreenData(buf) {
   if (!screenOn) return;
   const u = new Uint8Array(buf);
-  if (u[0] === 0xFF && u[1] === 0xD8) showFrame(new Blob([buf], {type: 'image/jpeg'}));   // JPEG 文件头
-  else onVideo(u);
+  if (u[0] === 0xFF && u[1] === 0xD8) {
+    receivedFrames++;
+    showFrame(new Blob([buf], {type: 'image/jpeg'}));
+  } else if (u[0] >= 1 && u[0] <= 3) {
+    if (u[0] !== 1) receivedFrames++;
+    onVideo(u);
+  }
 }
 // 当前显示的画布：view（坐标换算要用它的尺寸）
 let view = scr;
@@ -1293,7 +1321,7 @@ let vMaxW = S.vMaxW || 2880;
 let vRx = 0, vOwed = 0, vIdleT = null, vFlushes = 0, vDrawErr = '', vKeyAskAt = 0;
 function resetVideo() {
   if (vdec) { try { vdec.close(); } catch (e) {} }
-  vdec = null; vNeedKey = true; vOwed = 0; clearTimeout(vIdleT);
+  vdec = null; vNeedKey = true; vOwed = 0; vts = 0; clearTimeout(vIdleT);
 }
 const ack = () => send({t: 'screenAck'});
 // 回执不等「画出来」：解码器排队不多就回，有的解码器会压着几帧才出，等输出再回执会把整个流卡住
@@ -1327,7 +1355,9 @@ function onVideo(u) {
     return;
   }
   vNeedKey = false; vRx++;
-  try { vdec.decode(new EncodedVideoChunk({type: kind === 2 ? 'key' : 'delta', timestamp: (vts += 16667), data: body})); }
+  // 协议没有源时间戳，使用单调接收时间，避免把所有视频标成固定 60 帧。
+  vts = Math.max(vts + 1, Math.round(performance.now() * 1000));
+  try { vdec.decode(new EncodedVideoChunk({type: kind === 2 ? 'key' : 'delta', timestamp: vts, data: body})); }
   catch (e) { ack(); videoError(e); return; }
   vOwed++; payOwed();
   clearTimeout(vIdleT); vIdleT = setTimeout(videoIdle, 150);
@@ -1367,7 +1397,7 @@ function videoError(e) {
     S.vMaxW = vMaxW; saveS();
     toast(`视频解码失败，降到 ${vMaxW} 像素宽再试`);
   } else {
-    S.video = false; $('#sVideo').checked = false; showVideoNote(); vMaxW = 2880; delete S.vMaxW; saveS();
+    S.video = false; $('#sVideo').checked = false; showVideoNote(); showFps(); vMaxW = 2880; delete S.vMaxW; saveS();
     toast('这台设备解不了视频，已改用图片模式（重新打开网页会再试）', true);
   }
   setTimeout(() => { vRetrying = false; if (screenOn) subscribeScreen(); }, 300);   // 重新订阅，Mac 从关键帧重新开始
@@ -1545,9 +1575,22 @@ function penPoint(t, clampIt) {
   const {lx, ly, W, H} = padLocal(t.clientX, t.clientY);
   return {x: +clamp(lx / W, 0, 1).toFixed(4), y: +clamp(ly / H, 0, 1).toFixed(4)};
 }
+let fpsSampleAt = performance.now();
 setInterval(() => {
-  if (screenOn) $('#fps').textContent = (frames ? `${frames} 帧/秒` : '画面静止') + ' · ' + modeLabel();
-  frames = 0;
+  const now = performance.now();
+  const elapsed = now - fpsSampleAt;
+  if (elapsed < 500) return;
+  const drawnFps = Math.round(frames * 1000 / elapsed);
+  const receivedFps = Math.round(receivedFrames * 1000 / elapsed);
+  fpsSampleAt = now;
+  if (screenOn) {
+    const target = screenTargetFps();
+    const source = scrInfo.hz > 0 ? ` · 源 ${Math.round(scrInfo.hz)} Hz` : '';
+    const host = hostStatsOK && hostRates && now - hostRates.at < 2500 ? `采集 ${hostRates.capture} · 编码 ${hostRates.encode} · ` : '';
+    $('#fps').textContent = `目标 ${target} FPS · ${modeLabel()}${source}\n${host}接收 ${receivedFps} · 绘制 ${drawnFps} FPS`;
+    if (hostStatsOK && ws && ws.readyState === 1) send({t: 'screenStats', id: ++statsID});
+  }
+  frames = 0; receivedFrames = 0;
 }, 1000);
 $('#btnScreen').addEventListener('click', () => { if (!debounced('screen')) setScreen(!screenOn); });
 $('#scrClose').addEventListener('touchstart', e => e.stopPropagation(), {passive: true});
@@ -1670,13 +1713,17 @@ bind('#sTapAt', 'tapAt', true); bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLa
 $('#sVideo').addEventListener('change', () => {
   if (S.video) { vMaxW = 2880; delete S.vMaxW; saveS(); }
   showVideoNote();
+  showFps();
   if (screenOn) subscribeScreen();
   if (S.video && !VIDEO_OK && httpsOK) location.replace(`https://${location.hostname}:${httpsPort}/remote?token=${encodeURIComponent(TOKEN)}`);
 });
 showVideoNote();
 $('#sAutoLand').addEventListener('change', updateLayout);
-const showFps = () => $('#fpsVal').textContent = S.fps + ' 帧';
-// 高刷屏（iPhone 17 Pro / iPad Pro 的 120Hz）：量一下屏幕刷新率，快的话帧率上限放到 120（参考 Glass）
+const showFps = () => {
+  const target = screenTargetFps();
+  $('#fpsVal').textContent = target === S.fps ? target + ' 帧' : `${target} 帧（图片模式）`;
+};
+// 浏览器的绘制回调频率只作诊断。高帧率由用户选择，不随测量结果改动。
 let refreshHz = 0;
 function measureRefresh() {
   const times = [];
@@ -1685,10 +1732,7 @@ function measureRefresh() {
     if (times.length < 40) return requestAnimationFrame(tick);
     const gaps = times.slice(1).map((x, i) => x - times[i]).sort((a, b) => a - b);
     refreshHz = 1000 / gaps[gaps.length >> 1];
-    if (refreshHz > 68) {
-      $('#sFps').max = 120;
-      if (!S.fps120) { S.fps120 = 1; if (S.fps === 30) { S.fps = 60; $('#sFps').value = 60; showFps(); } saveS(); }
-    }
+    if (Number.isFinite(refreshHz)) reportClient();
   };
   requestAnimationFrame(tick);
 }

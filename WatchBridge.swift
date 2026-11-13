@@ -816,6 +816,10 @@ var penDock: (AXUIElement, CGPoint)?
 func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
     if m["t"] as? String == "screenAck" { ScreenStreamer.shared.acked(s); return }
     if m["t"] as? String == "screenKey" { ScreenStreamer.shared.requestKey(s); return }
+    if m["t"] as? String == "screenStats", let id = m["id"] as? Int {
+        ScreenStreamer.shared.sendStats(s, id: id)
+        return
+    }
     if m["t"] as? String == "vstat" {
         log("\(s.ip) 视频统计：\(m["codec"] ?? "?") \(m["size"] ?? "?")，收到 \(m["rx"] ?? 0) 帧，解出 \(m["out"] ?? 0) 帧，"
             + "排队 \(m["q"] ?? "?")，状态 \(m["state"] ?? "?")，清空 \(m["flushes"] ?? 0) 次，"
@@ -836,7 +840,7 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
         let fitter = FitDisplay.shared, me = ObjectIdentifier(s)
         if m["on"] as? Bool == true {
             Waker.poke(ip: s.ip, reply: { s.send($0) })    // 屏幕睡着时看到的是黑屏，先点亮
-            ScreenStreamer.shared.subscribe(s, width: Int(num(m["w"])), fps: Int(num(m["fps"])),
+            ScreenStreamer.shared.subscribe(s, width: Int(min(2880, max(0, num(m["w"])))), fps: Int(min(120, max(0, num(m["fps"])))),
                                             ack: m["ack"] as? Bool == true, video: m["codec"] as? String == "h264",
                                             cursor: m["cursor"] as? Bool == true)
             if let f = m["fit"] as? [String: Any], num(f["w"]) > 0, num(f["h"]) > 0 {
@@ -1777,7 +1781,6 @@ final class H264Encoder {
     }
 
     func invalidate() {
-        onOutput = nil
         if let s = session { VTCompressionSessionInvalidate(s) }
         session = nil
     }
@@ -1785,7 +1788,7 @@ final class H264Encoder {
 }
 
 /// 只在有手机打开「屏幕」时才截屏。画面没变化时系统不出新帧，不耗流量。
-/// 手机每显示完一帧回一个 screenAck，Mac 按回执控制发送节奏，网络慢时自动降帧，不会越积越卡。
+/// 手机回执表示已接收图片或接纳视频帧，Mac 据此控制发送节奏。
 final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
     static let shared = ScreenStreamer()
     private let queue = DispatchQueue(label: "screen.capture")
@@ -1797,17 +1800,20 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
     final class Sub {
         let session: WebSocketSession
         var width: Int
-        var ack: Bool          // 手机会回执：显示完一帧才算送达
+        var fps: Int
+        var nextFrameAt: TimeInterval = 0
+        var ack: Bool          // 手机会回执：已接收图片或接纳视频帧
         var video: Bool        // true = H.264 视频；false = JPEG 图片
         var busy = false       // （图片，老网页没有回执时）这一帧还在往网络里写
         var sentAt: TimeInterval = 0
         var lastSeq = 0        // 已经发给它的最新画面编号
+        var outputFrames = 0  // 已完成编码并交给 WebSocket 的帧数
         var inflight = 0       // 已发出（视频：已编码）、还没收到回执的帧数
         var cursor = false     // 手机自己画光标（画面里就不带光标，光标跟手不延迟）
         var encoder: H264Encoder?
         var forceKey = true
-        init(_ s: WebSocketSession, width: Int, ack: Bool, video: Bool) {
-            session = s; self.width = width; self.ack = ack; self.video = video
+        init(_ s: WebSocketSession, width: Int, fps: Int, ack: Bool, video: Bool) {
+            session = s; self.width = width; self.fps = fps; self.ack = ack; self.video = video
         }
     }
     private var subs: [ObjectIdentifier: Sub] = [:]
@@ -1836,27 +1842,25 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
                         "text": "需要「屏幕录制」权限：系统设置 → 隐私与安全性 → 屏幕与系统录音，打开「Mac 遥控」，再从菜单栏退出并重开 App"])
                 return
             }
-            let w = max(320, min(width, video ? 2880 : 1800))   // 视频模式 iPad 大屏可以更清楚（12.9 寸原生 2732）
+            let targetFps = fps > 0 ? max(2, min(fps, video ? 120 : 60)) : 30
+            let maxWidth = video ? (targetFps > 60 ? 1920 : 2880) : 1800
+            let w = max(320, min(width, maxWidth))
             let sub: Sub
             if let old = self.subs[ObjectIdentifier(s)] {
                 sub = old
-                sub.width = w; sub.ack = ack; sub.video = video
+                sub.width = w; sub.fps = targetFps; sub.ack = ack; sub.video = video
+                sub.nextFrameAt = 0
                 sub.lastSeq = 0; sub.inflight = 0
             } else {
-                sub = Sub(s, width: w, ack: ack, video: video)
+                sub = Sub(s, width: w, fps: targetFps, ack: ack, video: video)
                 self.subs[ObjectIdentifier(s)] = sub
             }
             sub.cursor = cursor
             if cursor { DispatchQueue.main.async { CursorReporter.shared.start(resendShape: true) } }
             // 重新订阅 = 手机端解码器是新的，编码器也重建，从关键帧开始
             sub.encoder?.invalidate(); sub.encoder = nil; sub.forceKey = true
-            let newFps = fps > 0 ? max(2, min(fps, 120)) : self.fps   // 120：ProMotion 的 iPhone / iPad（Mac 屏幕也要是 120Hz 才有那么多帧）
-            if newFps != self.fps {
-                self.fps = newFps
-                if let st = self.stream, let d = self.currentDisplay { st.updateConfiguration(self.makeConfig(display: d)) { _ in } }
-            }
-            s.send(["t": "screen", "ok": true, "codec": video ? "h264" : "jpeg"])
-            if let d = self.currentDisplay { s.send(["t": "screenInfo", "w": d.width, "h": d.height]) }
+            s.send(["t": "screen", "ok": true, "codec": video ? "h264" : "jpeg", "stats": true])
+            if let d = self.currentDisplay { s.send(self.screenInfo(d)) }
             self.push(sub)
             self.reconfigure()
         }
@@ -1883,6 +1887,14 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
+    func sendStats(_ s: WebSocketSession, id: Int) {
+        queue.async {
+            guard let sub = self.subs[ObjectIdentifier(s)] else { return }
+            s.send(["t": "screenStats", "id": id, "at": ProcessInfo.processInfo.systemUptime,
+                    "captured": self.seq, "encoded": sub.outputFrames])
+        }
+    }
+
     /// 手机收到一帧后发来的回执
     func acked(_ s: WebSocketSession) {
         queue.async {
@@ -1904,9 +1916,11 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
     /// 画面宽度按最大的那台手机来（图片最多 1800、视频最多 2880 像素）
     private func wantedWidth() -> Int { subs.values.map { $0.width }.max() ?? 1280 }
 
+    private func captureWidth(for display: SCDisplay) -> Int { min(wantedWidth(), display.width * 2) & ~1 }
+
     private func makeConfig(display: SCDisplay) -> SCStreamConfiguration {
         let c = SCStreamConfiguration()
-        let w = min(wantedWidth(), display.width * 2) & ~1          // H.264 要偶数宽高
+        let w = captureWidth(for: display)          // H.264 要偶数宽高
         c.width = w
         c.height = Int((Double(w) * Double(display.height) / Double(display.width)).rounded()) & ~1
         c.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
@@ -1922,9 +1936,16 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
 
     /// 在 queue 上调用
     private func reconfigure() {
+        let wantedFps = subs.values.map { $0.fps }.max() ?? 12
+        let fpsChanged = fps != wantedFps
+        fps = wantedFps
         if let st = stream, let d = currentDisplay {
             let wantCursor = !(subs.values.contains { $0.cursor } && subs.values.allSatisfy { $0.cursor })
-            if wantedWidth() & ~1 != captureWidth || wantCursor != cursorInVideo { st.updateConfiguration(makeConfig(display: d)) { _ in } }
+            if fpsChanged || captureWidth(for: d) != captureWidth || wantCursor != cursorInVideo {
+                st.updateConfiguration(makeConfig(display: d)) { error in
+                    if let error { log("屏幕镜像配置更新失败：\(error.localizedDescription)") }
+                }
+            }
             return
         }
         guard !starting else { return }
@@ -1951,14 +1972,17 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
                 self.stream = st
                 st.startCapture { err in
-                    if let err = err {
-                        log("屏幕镜像启动失败：\(err)")
-                        self.queue.async { self.stream = nil; self.currentDisplay = nil }
-                        self.broadcast(["t": "screen", "ok": false, "text": "截屏失败：\(err.localizedDescription)"])
-                    } else {
-                        self.broadcast(["t": "screenInfo", "w": d.width, "h": d.height])
-                        let kinds = Set(self.subs.values.map { $0.video ? "视频" : "图片" }).sorted().joined(separator: "+")
-                        log("屏幕镜像已开始（\(self.captureWidth) 像素宽，最多 \(self.fps) 帧/秒，\(kinds)）")
+                    self.queue.async {
+                        guard self.stream === st else { return }
+                        if let err {
+                            self.stream = nil
+                            self.currentDisplay = nil
+                            self.broadcast(["t": "screen", "ok": false, "text": "截屏失败：\(err.localizedDescription)"])
+                        } else {
+                            self.broadcast(self.screenInfo(d))
+                            let kinds = Set(self.subs.values.map { $0.video ? "视频" : "图片" }).sorted().joined(separator: "+")
+                            log("屏幕镜像已开始（\(self.captureWidth) 像素宽，目标 \(self.fps) 帧/秒，\(kinds)）")
+                        }
                     }
                 }
             }
@@ -1970,10 +1994,16 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
         stream = nil
         currentDisplay = nil
         lastJPEG = nil
+        lastJPEGSeq = 0
         lastPB = nil
         idleWork?.cancel(); idleWork = nil
         seq = 0
         log("屏幕镜像已停止")
+    }
+
+    private func screenInfo(_ display: SCDisplay) -> [String: Any] {
+        let sourceHz = CGDisplayCopyDisplayMode(display.displayID)?.refreshRate ?? 0
+        return ["t": "screenInfo", "w": display.width, "h": display.height, "hz": sourceHz]
     }
 
     private func broadcast(_ obj: [String: Any]) {
@@ -1982,15 +2012,17 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         queue.async {
+            guard self.stream === stream else { return }
             self.stream = nil
             self.currentDisplay = nil
+            self.lastPB = nil
             log("屏幕镜像中断：\(error.localizedDescription)")
             if !self.subs.isEmpty { self.reconfigure() }   // 比如换了显示器分辨率，自动重来
         }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sb: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen, let pb = sb.imageBuffer else { return }
+        guard self.stream === stream, type == .screen, let pb = sb.imageBuffer else { return }
         // 只处理完整的新画面；画面静止时系统发的 idle 帧没有新内容
         if let arr = CMSampleBufferGetSampleAttachmentsArray(sb, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
            let raw = arr.first?[.status] as? Int, let st = SCFrameStatus(rawValue: raw), st != .complete { return }
@@ -2023,6 +2055,8 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
     /// 在 queue 上调用：这台手机准备好了、并且还没收到最新画面，就发给它
     private func push(_ sub: Sub) {
         guard subs[ObjectIdentifier(sub.session)] === sub, let pb = lastPB, sub.lastSeq < seq else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard sub.fps >= fps || now >= sub.nextFrameAt else { return }
         if sub.video {
             guard sub.inflight < maxInflight else { return }
             sub.lastSeq = seq
@@ -2032,6 +2066,7 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
             guard let jpeg = jpegForLatest() else { return }
             sub.busy = true
             sub.lastSeq = seq
+            sub.outputFrames += 1
             if sub.ack { sub.inflight += 1; sub.sentAt = ProcessInfo.processInfo.systemUptime }
             sub.session.sendBinary(jpeg) { [weak self] in
                 self?.queue.async {
@@ -2040,6 +2075,8 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
             }
         }
+        let interval = 1.0 / Double(sub.fps)
+        sub.nextFrameAt = max(now + interval * 0.5, sub.nextFrameAt + interval)
     }
 
     /// JPEG 只在有手机用图片模式、并且真要发的时候才压
@@ -2062,9 +2099,15 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
         let h = Int((Double(w) * Double(ph) / Double(pw)).rounded()) & ~1
         if sub.encoder == nil || sub.encoder!.width != w || sub.encoder!.height != h {
             sub.encoder?.invalidate()
-            guard let enc = H264Encoder(width: w, height: h, fps: fps) else { return }
-            let s = sub.session
-            enc.onOutput = { kind, data in s.sendBinary(Data([kind]) + data) {} }
+            sub.encoder = nil
+            guard let enc = H264Encoder(width: w, height: h, fps: sub.fps) else { return }
+            enc.onOutput = { [weak self, weak sub, weak enc] kind, data in
+                self?.queue.async { [weak sub, weak enc] in
+                    guard let sub, let enc, sub.encoder === enc else { return }
+                    if kind == 2 || kind == 3 { sub.outputFrames += 1 }
+                    sub.session.sendBinary(Data([kind]) + data) {}
+                }
+            }
             sub.encoder = enc
             sub.forceKey = true
         }
