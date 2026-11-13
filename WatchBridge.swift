@@ -894,8 +894,8 @@ enum Waker {
         let asleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
         lock.lock()
         let now = Date()
-        // 屏幕醒着时 5 秒报一次就够了（顺便防止遥控时电脑因为「没人碰」而睡眠）
-        guard asleep || now.timeIntervalSince(last) > 5 else { lock.unlock(); return }
+        // 每秒最多报一次：锁屏界面要先看到「有人在用」才会检查密码，不然输对了也会显示密码错误
+        guard asleep || now.timeIntervalSince(last) > 1 else { lock.unlock(); return }
         last = now
         IOPMAssertionDeclareUserActivity("PC 遥控：手机在操作" as CFString, kIOPMUserActiveLocal, &assertion)
         var hint = false

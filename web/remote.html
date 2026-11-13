@@ -385,8 +385,9 @@ function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(TOKEN)}`);
   ws.binaryType = 'arraybuffer';
-  ws.onopen = () => { retry = 0; setStatus('ok', '已连接 ' + location.hostname); ping(); if (screenOn) subscribeScreen(); };
+  ws.onopen = () => { lastRx = performance.now(); retry = 0; setStatus('ok', '已连接 ' + location.hostname); ping(); if (screenOn) subscribeScreen(); };
   ws.onmessage = ev => {
+    lastRx = performance.now();
     if (typeof ev.data !== 'string') { onScreenData(ev.data); return; }   // 二进制 = 屏幕画面
     let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === 'screen') { if (!m.ok) { toast(m.text, true); setScreen(false); } else codec = m.codec || 'jpeg'; return; }
@@ -413,19 +414,40 @@ function connect() {
       fatal = true; setStatus('', m.text); toast(m.text, true); openSheet('settings');
     }
   };
-  ws.onclose = () => {
-    ws = null;
-    if (fatal) return;
-    if (document.visibilityState !== 'visible') { setStatus('', '已断开'); return; }   // 在后台不重连，回到前台再连
-    setStatus('', '已断开，重连中…');
-    setTimeout(connect, Math.min(3000, 300 * 2 ** retry++));
-  };
+  ws.onclose = lost;
+}
+function lost() {
+  ws = null;
+  if (fatal) return;
+  if (document.visibilityState !== 'visible') { setStatus('', '已断开'); return; }   // 在后台不重连，回到前台再连
+  setStatus('', '已断开，重连中…');
+  setTimeout(connect, Math.min(3000, 300 * 2 ** retry++));
 }
 function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 function ping() { const id = ++pingId; pingSent[id] = performance.now(); send({t: 'ping', id}); }
 setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 3000);
+// 连接「假活着」：手机睡眠回来、换了 Wi-Fi 后，WebSocket 可能看起来还开着，其实已经不通了（触控板没反应但显示已连接）。
+// 每 3 秒 ping 一次，7 秒什么都没收到就当断了，马上重连
+let lastRx = 0;
+function dropDead(why) {
+  if (!ws) return;
+  const dead = ws;
+  dead.onclose = dead.onmessage = dead.onerror = null;
+  try { dead.close(); } catch (e) {}
+  console.log('连接没回应，重连：' + why);
+  lost();
+}
+setInterval(() => {
+  if (document.visibilityState === 'visible' && ws && ws.readyState === 1 && performance.now() - lastRx > 7000) dropDead('7 秒没收到数据');
+}, 1000);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { connect(); if (screenOn) subscribeScreen(); }
+  if (document.visibilityState === 'visible') {
+    if (ws && ws.readyState === 1) {   // 回到前台：先确认旧连接还通，2 秒没回应就重连
+      const t = performance.now(); ping();
+      setTimeout(() => { if (ws && ws.readyState === 1 && lastRx < t) dropDead('回到前台后没回应'); }, 2000);
+    }
+    connect(); if (screenOn) subscribeScreen();
+  }
   else { releaseAll(); if (screenOn) send({t: 'screen', on: false}); }
 });
 
