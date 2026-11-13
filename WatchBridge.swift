@@ -197,6 +197,31 @@ func typeText(_ text: String) {
     flush()
 }
 
+/// 一个字一个字地按真实按键输入（美式键盘布局）。锁屏的密码框是安全输入框，不接受上面那种 Unicode 事件，只认真按键
+let shiftedKeys: [Character: Character] = [
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+    "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/", "~": "`",
+]
+
+func typeByKeys(_ text: String) {
+    for ch in text {
+        if ch == "\n" || ch == "\r\n" { postKey(36); continue }
+        if ch == "\t" { postKey(48); continue }
+        if ch == " " { postKey(49); continue }
+        var base = ch, shift = false
+        if let b = shiftedKeys[ch] { base = b; shift = true }
+        else if ch.isUppercase, ch.isASCII { base = Character(ch.lowercased()); shift = true }
+        guard let code = keyCodes[String(base)] else { typeText(String(ch)); continue }   // 键盘上没有的字（中文等）
+        if shift {
+            postModifier(56, down: true, flags: .maskShift)
+            postKey(code, flags: .maskShift)
+            postModifier(56, down: false, flags: [])
+        } else {
+            postKey(code)
+        }
+    }
+}
+
 // MARK: - 媒体键（播放/暂停、音量等）
 
 enum MediaKey: Int32 {
@@ -904,6 +929,11 @@ func handleRemote(_ m: [String: Any], ip: String, reply: ([String: Any]) -> Void
     case "text":
         let text = m["text"] as? String ?? ""
         guard !text.isEmpty else { return }
+        if Waker.screenLocked() {
+            typeByKeys(text)       // 锁屏输密码：只认真按键；密码不写日志
+            log("\(ip) 锁屏界面输入了 \(text.count) 个字")
+            return
+        }
         if m["paste"] as? Bool == true { pasteText(text) } else { typeText(text) }
         log("\(ip) 输入：\(text)")
     case "cmd":
