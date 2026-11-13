@@ -58,7 +58,7 @@ pub fn info() -> (i32, i32) {
 pub fn subscribe(key: usize, width: u32, fps: u32, video: bool, send: impl FnOnce() -> SendBin) {
     // 视频最宽 2560（软件编码，再大太吃 CPU）；图片最宽 1920
     let width = width.clamp(320, if video { 2560 } else { 1920 });
-    let fps = if fps == 0 { 30 } else { fps.clamp(2, 60) };
+    let fps = if fps == 0 { 30 } else { fps.clamp(2, 120) };
     let mut map = subs().lock().unwrap();
     if let Some(sub) = map.get(&key) {
         let mut st = sub.st.lock().unwrap();

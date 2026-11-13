@@ -80,6 +80,18 @@ nav button:active{background:var(--btn-hi)}
 
 #toast{position:absolute;left:50%;top:calc(var(--safe-t) + 50px);transform:translateX(-50%);background:#2b3039;color:var(--fg);padding:8px 14px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:86%;text-align:center;z-index:9}
 #toast.show{opacity:1}
+/* Mac 复制了东西：顶部一条小提示，点「拷到手机」才放进手机剪贴板（iOS 只允许点按时写剪贴板） */
+#clipBar{position:absolute;left:50%;top:calc(var(--safe-t) + 10px);transform:translate(-50%,-140%);z-index:10;display:flex;align-items:center;gap:8px;
+  max-width:min(92%,520px);padding:6px 6px 6px 12px;border-radius:14px;background:rgba(32,35,42,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 6px 24px rgba(0,0,0,.45);font-size:13px;color:var(--fg);transition:transform .25s}
+#clipBar.show{transform:translate(-50%,0)}
+#clipBar .txt{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0;color:#c9ccd3}
+#clipBar img{height:32px;max-width:64px;border-radius:5px;object-fit:cover}
+#clipBar button{flex:none;border:0;border-radius:10px;padding:7px 11px;background:var(--acc);color:#fff;font-size:13px}
+#clipBar button.x{background:transparent;color:var(--dim);padding:7px 6px}
+#clipImg{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#ddd;font-size:13px;padding:20px}
+#clipImg.show{display:flex}
+#clipImg img{max-width:100%;max-height:75%;border-radius:8px;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
 #toast.bad{background:#5a2626}
 /* 屏幕镜像 */
 .hbtns{display:flex;gap:8px}
@@ -276,6 +288,7 @@ body.imm.pin .sheet.open{right:56px}
       <button class="k" data-cmd="调暗">亮度 −</button>
       <button class="k" data-cmd="调亮">亮度 ＋</button>
       <button class="k mac-only" data-act="unlock">🔓 解锁 Mac</button>
+      <button class="k" id="pushClip">📋 粘贴手机剪贴板</button>
     </div>
   </div>
 
@@ -292,6 +305,7 @@ body.imm.pin .sheet.open{right:56px}
     <div class="opt">看屏幕时的操作方式 <span class="seg" id="segMode"><button data-v="pad">触控板</button><button data-v="touch">触摸屏</button></span></div>
     <label>看屏幕时全屏（按钮收进小圆点） <input type="checkbox" id="sImm"></label>
     <label class="mac-only">Mac 锁屏时自动解锁（先在 Mac 菜单栏设置密码） <input type="checkbox" id="sUnlock"></label>
+    <label class="mac-only">Mac 复制东西时提示拷到手机 <input type="checkbox" id="sClip"></label>
     <label>全屏时右边按钮一直显示（不自动收起） <input type="checkbox" id="sPin"></label>
     <label>全屏时 Mac 改用本机屏幕比例（铺满不留黑边） <input type="checkbox" id="sFit"></label>
     <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
@@ -308,6 +322,8 @@ body.imm.pin .sheet.open{right:56px}
     <button id="btnKeys"><svg class="i"><use href="#i-cmd"/></svg>快捷</button>
   </nav>
   <div id="toast"></div>
+  <div id="clipBar"><span class="ico">📋</span><img alt="" hidden><span class="txt"></span><button id="clipCopy">拷到手机</button><button class="x" id="clipX">✕</button></div>
+  <div id="clipImg"><img alt="Mac 剪贴板里的图片"><div>长按图片 →「拷贝」或「存储到照片」，点空白处关闭</div></div>
 </div>
 <label id="hap"><input type="checkbox" switch></label>
 <div id="safeProbe" style="position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"></div>
@@ -339,6 +355,7 @@ if (S.fitMac === undefined) S.fitMac = true;         // 默认让 Mac 适配本�
 // iPhone 也默认全屏 + 让 Mac 适配手机比例（横过来看，Mac 变成和 iPhone 一样的宽屏）。以前存过的旧默认值改一次
 if (!S.fitPhone) { S.fitPhone = 1; if (!IPAD) { S.immersive = true; S.fitMac = true; } saveS(); }
 if (S.autoUnlock === undefined) S.autoUnlock = true;   // 只有在 Mac 上设了密码才会生效
+if (S.clipSync === undefined) S.clipSync = true;
 if (S.pinSide === undefined) S.pinSide = !IPAD;       // iPhone 默认按钮栏一直显示
 if (S.scribble === undefined) S.scribble = true;
 if (S.touchMode === undefined) S.touchMode = IPAD ? 'touch' : 'pad';   // 看屏幕时：触摸屏（点哪操作哪）/ 触控板
@@ -406,6 +423,8 @@ function connect() {
       if (!m.ok) toast('Mac 没能改成这块屏幕的比例，先按原比例显示', true);
     } else if (m.t === 'textFocus') {
       if (m.id === penTapId && m.editable && S.scribble) hwOpen();
+    } else if (m.t === 'clip') {
+      if (S.clipSync) showClip(m);
     } else if (m.t === 'locked') {
       onLocked(m.unlock);
     } else if (m.t === 'reply') {
@@ -446,7 +465,7 @@ document.addEventListener('visibilitychange', () => {
       const t = performance.now(); ping();
       setTimeout(() => { if (ws && ws.readyState === 1 && lastRx < t) dropDead('回到前台后没回应'); }, 2000);
     }
-    connect(); if (screenOn) subscribeScreen();
+    connect(); if (screenOn) { subscribeScreen(); holdAwake(true); }
   }
   else { releaseAll(); if (screenOn) send({t: 'screen', on: false}); }
 });
@@ -887,6 +906,81 @@ $('#btnKb').addEventListener('click', () => {
   openSheet('kb'); ta.focus();     // 必须在点击回调里同步 focus，iOS 才会弹键盘
 });
 
+// ---------- 剪贴板（参考 Glass）----------
+let clipData = null, clipTimer = null;
+function showClip(m) {
+  clipData = m;
+  const bar = $('#clipBar'), img = bar.querySelector('img'), txt = bar.querySelector('.txt');
+  if (m.kind === 'image') { img.src = 'data:image/png;base64,' + m.data; img.hidden = false; txt.textContent = 'Mac 复制了一张图片'; }
+  else { img.hidden = true; txt.textContent = 'Mac 复制了：' + m.text.replace(/\s+/g, ' ').slice(0, 80); }
+  bar.classList.add('show');
+  clearTimeout(clipTimer); clipTimer = setTimeout(() => bar.classList.remove('show'), 10000);
+}
+function hideClip() { $('#clipBar').classList.remove('show'); }
+// http 网页没有 navigator.clipboard：用老办法（选中一个看不见的输入框再「拷贝」）
+function copyTextFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.readOnly = true;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+  document.body.appendChild(ta);
+  ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  return ok;
+}
+$('#clipCopy').addEventListener('click', async () => {
+  const m = clipData; if (!m) return;
+  hideClip(); haptic();
+  if (m.kind === 'text') {
+    try { await navigator.clipboard.writeText(m.text); toast('已拷到手机剪贴板'); return; } catch (e) {}
+    const ok = copyTextFallback(m.text);
+    toast(ok ? '已拷到手机剪贴板' : '没拷成功', !ok);
+    return;
+  }
+  try {   // 图片：HTTPS 下直接写剪贴板；不行就把图片放大显示，长按拷贝 / 存储
+    const blob = await (await fetch('data:image/png;base64,' + m.data)).blob();
+    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+    toast('图片已拷到手机剪贴板');
+  } catch (e) {
+    const box = $('#clipImg'); box.querySelector('img').src = 'data:image/png;base64,' + m.data; box.classList.add('show');
+  }
+});
+$('#clipX').addEventListener('click', hideClip);
+$('#clipImg').addEventListener('click', e => { if (e.target.tagName !== 'IMG') $('#clipImg').classList.remove('show'); });
+// 手机剪贴板 → Mac：要在点按里读（iOS 会弹「粘贴」小气泡），而且只有 HTTPS 网页能读
+$('#pushClip').addEventListener('click', async () => {
+  haptic();
+  if (!navigator.clipboard) { toast('要用 HTTPS 打开才能读手机剪贴板：可以在键盘面板里长按「粘贴」再发送', true); return; }
+  try {
+    if (hostOS !== 'windows' && navigator.clipboard.read) {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find(t => t.startsWith('image/'));
+        if (type) {
+          let blob = await item.getType(type);
+          if (type !== 'image/png') blob = await toPng(blob);
+          const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+          send({t: 'setClip', png: b64, paste: true}); toast('图片已粘贴到 Mac'); return;
+        }
+        if (item.types.includes('text/plain')) {
+          const text = await (await item.getType('text/plain')).text();
+          send({t: 'setClip', text, paste: true}); toast('已粘贴到 Mac'); return;
+        }
+      }
+      toast('手机剪贴板是空的', true); return;
+    }
+    const text = await navigator.clipboard.readText();
+    if (!text) { toast('手机剪贴板是空的', true); return; }
+    send(hostOS === 'windows' ? {t: 'text', text, paste: true} : {t: 'setClip', text, paste: true});
+    toast('已粘贴到电脑');
+  } catch (e) { toast('没读到手机剪贴板（' + (e.name || e) + '）', true); }
+});
+async function toPng(blob) {
+  const bmp = await createImageBitmap(blob);
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  c.getContext('2d').drawImage(bmp, 0, 0);
+  return await new Promise(r => c.toBlob(r, 'image/png'));
+}
+
 // Mac 锁屏了：设了自动解锁密码就让 Mac 解锁，没设就告诉用户怎么办
 function onLocked(canUnlock) {
   if (canUnlock && S.autoUnlock) send({t: 'unlock', auto: true});
@@ -1035,6 +1129,7 @@ function fitSize() {
 }
 function setScreen(on) {
   screenOn = on;
+  holdAwake(on);
   document.body.classList.toggle('screen-on', on);
   if (!on && openName) openSheet(null);
   $('#btnScreen').classList.toggle('on', on);
@@ -1283,7 +1378,7 @@ function modeLabel() {
 function reportClient() {
   send({t: 'client', dev: IPAD ? 'iPad' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'other',
         secure: window.isSecureContext, webcodecs: typeof VideoDecoder === 'function', https: httpsOK, httpsWhy: httpsWhy || undefined,
-        standalone: document.body.classList.contains('standalone'), dpr: window.devicePixelRatio || 1,
+        standalone: document.body.classList.contains('standalone'), dpr: window.devicePixelRatio || 1, hz: Math.round(refreshHz) || undefined,
         ua: ((navigator.userAgent.match(/OS [\d_]+/) || [''])[0] + ' ' + (navigator.userAgent.match(/Version\/[\d.]+/) || [''])[0]).trim(),
         geo: geometry()});
 }
@@ -1458,7 +1553,8 @@ bind('#sSpeed', 'speed'); bind('#sScroll', 'scroll'); bind('#sNatural', 'natural
 bind('#sInertia', 'inertia', true); bind('#sPaste', 'paste', true); bind('#sHaptic', 'haptic', true);
 bind('#sImm', 'immersive', true); $('#sImm').addEventListener('change', updateLayout);
 bind('#sUnlock', 'autoUnlock', true);
-bind('#sPin', 'pinSide', true); $('#sPin').addEventListener('change', updateLayout);
+bind('#sPin', 'pinSide', true);
+bind('#sClip', 'clipSync', true); $('#sPin').addEventListener('change', updateLayout);
 bind('#sFit', 'fitMac', true); $('#sFit').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 bind('#sScribble', 'scribble', true);
 bind('#sTapAt', 'tapAt', true); bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLand', true); bind('#sVideo', 'video', true);
@@ -1471,6 +1567,33 @@ $('#sVideo').addEventListener('change', () => {
 showVideoNote();
 $('#sAutoLand').addEventListener('change', updateLayout);
 const showFps = () => $('#fpsVal').textContent = S.fps + ' 帧';
+// 高刷屏（iPhone 17 Pro / iPad Pro 的 120Hz）：量一下屏幕刷新率，快的话帧率上限放到 120（参考 Glass）
+let refreshHz = 0;
+function measureRefresh() {
+  const times = [];
+  const tick = t => {
+    times.push(t);
+    if (times.length < 40) return requestAnimationFrame(tick);
+    const gaps = times.slice(1).map((x, i) => x - times[i]).sort((a, b) => a - b);
+    refreshHz = 1000 / gaps[gaps.length >> 1];
+    if (refreshHz > 68) {
+      $('#sFps').max = 120;
+      if (!S.fps120) { S.fps120 = 1; if (S.fps === 30) { S.fps = 60; $('#sFps').value = 60; showFps(); } saveS(); }
+    }
+  };
+  requestAnimationFrame(tick);
+}
+measureRefresh();
+// 看屏幕时手机不自动锁屏（Wake Lock，iOS 16.4+ 支持）
+let wakeLock = null;
+async function holdAwake(on) {
+  try {
+    if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!on && wakeLock) { wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
 showFps(); $('#sFps').addEventListener('input', showFps);
 $('#sFps').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 const tok = $('#sToken'); tok.value = TOKEN;
