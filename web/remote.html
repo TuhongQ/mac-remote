@@ -97,6 +97,11 @@ nav button:active{background:var(--btn-hi)}
 .hbtns{display:flex;gap:8px}
 canvas.view{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;display:none}
 body.screen-on canvas.view.on{display:block}
+canvas.view{transform-origin:0 0}
+/* 手机自己画的 Mac 光标（参考 Glass）：手指一动就跟上 */
+#cur{position:absolute;left:0;top:0;pointer-events:none;z-index:3;display:none;will-change:transform}
+#cur img{display:block;width:100%;height:100%;image-rendering:auto}
+body.screen-on #cur.on{display:block}
 body.screen-on #hint,body.screen-on #legend{display:none}
 body.screen-on #pad{background:#000}
 #fps{position:absolute;top:8px;left:10px;font-size:10.5px;color:rgba(255,255,255,.45);pointer-events:none;display:none}
@@ -188,6 +193,7 @@ body.imm.pin .sheet.open{right:56px}
     <div id="pad">
       <canvas id="screen" class="view on" width="0" height="0"></canvas>
       <canvas id="screenGL" class="view" width="0" height="0"></canvas>
+      <div id="cur"><img alt=""></div>
       <div id="fps"></div>
       <button id="scrClose" aria-label="关闭屏幕"><svg class="i"><use href="#i-x"/></svg></button>
       <div id="hint">单指移动 · 轻点＝左键 · 连点＝双击<br>双指轻点＝右键 · 双指滑动＝滚动 · 捏合＝缩放<br>三指拖动＝按住左键拖 · 三指轻点＝中键<br>四指左右＝切换桌面 · 上滑＝调度中心<span class="penhint">Apple Pencil：直接点、拖动、写字</span></div>
@@ -306,6 +312,7 @@ body.imm.pin .sheet.open{right:56px}
     <label>看屏幕时全屏（按钮收进小圆点） <input type="checkbox" id="sImm"></label>
     <label class="mac-only">Mac 锁屏时自动解锁（先在 Mac 菜单栏设置密码） <input type="checkbox" id="sUnlock"></label>
     <label class="mac-only">Mac 复制东西时提示拷到手机 <input type="checkbox" id="sClip"></label>
+    <label class="mac-only">看屏幕时手机自己画光标（更跟手） <input type="checkbox" id="sCur"></label>
     <label>全屏时右边按钮一直显示（不自动收起） <input type="checkbox" id="sPin"></label>
     <label>全屏时 Mac 改用本机屏幕比例（铺满不留黑边） <input type="checkbox" id="sFit"></label>
     <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
@@ -356,6 +363,7 @@ if (S.fitMac === undefined) S.fitMac = true;         // 默认让 Mac 适配本�
 if (!S.fitPhone) { S.fitPhone = 1; if (!IPAD) { S.immersive = true; S.fitMac = true; } saveS(); }
 if (S.autoUnlock === undefined) S.autoUnlock = true;   // 只有在 Mac 上设了密码才会生效
 if (S.clipSync === undefined) S.clipSync = true;
+if (S.localCursor === undefined) S.localCursor = true;
 if (S.pinSide === undefined) S.pinSide = !IPAD;       // iPhone 默认按钮栏一直显示
 if (S.scribble === undefined) S.scribble = true;
 if (S.touchMode === undefined) S.touchMode = IPAD ? 'touch' : 'pad';   // 看屏幕时：触摸屏（点哪操作哪）/ 触控板
@@ -417,6 +425,10 @@ function connect() {
     if (m.t === 'pong') {
       const t0 = pingSent[m.id]; delete pingSent[m.id];
       if (t0) { latency = Math.round(performance.now() - t0); setStatus('ok', `已连接 ${location.hostname} · ${latency}ms`); }
+    } else if (m.t === 'cur') {
+      onCursor(m);
+    } else if (m.t === 'curImg') {
+      onCursorImg(m);
     } else if (m.t === 'screenInfo') {
       scrInfo = {w: m.w || 0, h: m.h || 0};
     } else if (m.t === 'fit') {
@@ -442,7 +454,12 @@ function lost() {
   setStatus('', '已断开，重连中…');
   setTimeout(connect, Math.min(3000, 300 * 2 ** retry++));
 }
-function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function send(o) {
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(o));
+  // 点哪点哪 / 拖动 / 笔：光标马上画到那里，不等 Mac 报回来
+  if (CUR.on && (o.t === 'moveTo' || o.t === 'clickAt' || o.t === 'pen') && o.x != null) { CUR.x = o.x; CUR.y = o.y; CUR.hold = performance.now() + 250; pendMoves.length = 0; drawCursor(); }
+}
 function ping() { const id = ++pingId; pingSent[id] = performance.now(); send({t: 'ping', id}); }
 setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 3000);
 // 连接「假活着」：手机睡眠回来、换了 Wi-Fi 后，WebSocket 可能看起来还开着，其实已经不通了（触控板没反应但显示已连接）。
@@ -485,7 +502,11 @@ function showBadge(txt) { badge.textContent = txt; badge.className = txt ? 'show
 function schedule() { if (!rafOn) { rafOn = true; requestAnimationFrame(flush); } }
 function flush() {
   rafOn = false;
-  if (pend.mx || pend.my) { send({t: 'move', dx: +pend.mx.toFixed(2), dy: +pend.my.toFixed(2)}); pend.mx = pend.my = 0; }
+  if (pend.mx || pend.my) {
+    const dx = +pend.mx.toFixed(2), dy = +pend.my.toFixed(2), sq = ++moveSeq;
+    send({t: 'move', dx, dy, s: sq}); pend.mx = pend.my = 0;
+    if (CUR.on) { pendMoves.push({s: sq, dx, dy}); drawCursor(true); }
+  }
   if (pend.sx || pend.sy) { send({t: 'scroll', dx: +pend.sx.toFixed(2), dy: +pend.sy.toFixed(2), p: 2, m: 0}); pend.sx = pend.sy = 0; }
 }
 
@@ -596,7 +617,7 @@ let scrInfo = {w: 0, h: 0};      // Mac 屏幕的点数（Mac 开始截屏时发
 function macPerPx() {
   if (!view.width) return 1;
   const k = Math.min(pad.clientWidth / view.width, pad.clientHeight / view.height);
-  return (scrInfo.w || view.width / 2) / (view.width * k);
+  return (scrInfo.w || view.width / 2) / (view.width * k * Z.s);
 }
 // 连点两下：第二下用第一下的位置，Mac 才认成双击（手指每次落点会差一点）
 let lastTap = null;
@@ -718,11 +739,15 @@ function twoFinger(cur, dx, dy, now, k) {
     const pinch = (cos < -0.3 && Math.abs(dd) > 10) || (cos < 0.5 && Math.abs(dd) > 2 * pan && Math.abs(dd) > 18);
     g.sub = pinch ? 'pinch' : 'pan';
     m.dPrev = dist;
+    if (pinch && screenOn && view.width) { zoomBegin(m); zoomPinch(cur); return; }   // 看屏幕时：在手机上放大画面
     if (pinch) { showBadge('缩放'); g.zoom = dd; }
+    else if (g.touch && Z.s > 1.02) { g.sub = 'view'; }                              // 放大着：双指拖 = 移动视野
     else { let cx = (ax + bx) / 2, cy = (ay + by) / 2; if (rotated) [cx, cy] = [cy, -cx]; queueScroll(cx, cy, now, k); }
     return;
   }
   if (g.sub === 'pan') queueScroll(dx, dy, now, k);
+  else if (g.sub === 'view') panView(dx, dy);
+  else if (g.zs) zoomPinch(cur);
   else {
     g.zoom += dist - m.dPrev; m.dPrev = dist;
     while (g.zoom > 45) { send({t: 'key', key: 'cmd+='}); g.zoom -= 45; haptic(); }
@@ -814,6 +839,7 @@ function endGesture(e) {
   const tap = !cancel && !g.scrollBegan && !g.down && !g.absDown && !g.held && g.sub !== 'pinch'
               && g.disp < TAP_SLOP && dur < (g.max > 1 ? MULTI_TAP_MS : TAP_MS);
   if (g.touch) touchEnd(tap, cancel); else padEnd(tap);
+  if (g.zs) zoomEnd();
   g = null;
   pad.classList.remove('active', 'drag');
   showBadge('');
@@ -1104,6 +1130,7 @@ function updateLayout() {
   $('#sKeys').classList.toggle('on', openName === 'keys');
   $('#sSet').classList.toggle('on', openName === 'settings');
   if (screenOn) { clearTimeout(rsTimer); rsTimer = setTimeout(subscribeScreen, 300); }
+  setZoom(Z.s, Z.x, Z.y);   // 尺寸变了，视野重新限制在画面里
 }
 function captureWidth() {
   const w = pad.clientWidth, h = pad.clientHeight;
@@ -1115,7 +1142,9 @@ function subscribeScreen() {
   resetVideo();
   clearTimeout(subscribeScreen.t1); clearTimeout(subscribeScreen.t2);
   subscribeScreen.t1 = setTimeout(reportVideo, 3000); subscribeScreen.t2 = setTimeout(reportVideo, 8000);
-  const msg = {t: 'screen', on: true, w: captureWidth(), fps: S.fps, ack: true, codec: VIDEO_OK && S.video ? 'h264' : 'jpeg'};
+  const msg = {t: 'screen', on: true, w: captureWidth(), fps: S.fps, ack: true, codec: VIDEO_OK && S.video ? 'h264' : 'jpeg',
+               cursor: !!S.localCursor && hostOS !== 'windows'};
+  CUR.on = false; $('#cur').classList.remove('on'); pendMoves.length = 0;   // 等 Mac 报了光标位置再画
   const f = fitSize();
   if (f) msg.fit = f;
   send(msg);
@@ -1137,6 +1166,7 @@ function setScreen(on) {
   else {
     send({t: 'screen', on: false});
     scr.width = 0; scr.height = 0; glView.width = 0; glView.height = 0; nextBlob = null; resetVideo();
+    setZoom(1, 0, 0); CUR.on = false; $('#cur').classList.remove('on');
     hwClose();
     updateLayout();
   }
@@ -1424,13 +1454,91 @@ function padLocal(cx, cy) {
 }
 function screenPoint(cx, cy, clampIt) {
   if (!view.width) return null;
-  const {lx, ly, W, H} = padLocal(cx, cy);
+  let {lx, ly, W, H} = padLocal(cx, cy);
+  lx = (lx - Z.x) / Z.s; ly = (ly - Z.y) / Z.s;   // 手机上放大了：换算回没放大时的位置
   const k = Math.min(W / view.width, H / view.height);
   const dw = view.width * k, dh = view.height * k;
   let x = (lx - (W - dw) / 2) / dw, y = (ly - (H - dh) / 2) / dh;
   if (clampIt) { x = clamp(x, 0, 1); y = clamp(y, 0, 1); }
   return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? {x: +x.toFixed(4), y: +y.toFixed(4)} : null;
 }
+// ---------- 手机上放大画面（参考 Glass）----------
+// 双指捏合只放大手机上看到的画面（Mac 不变）；触控板模式下视野跟着光标走，触摸屏模式下双指拖动视野
+const Z = {s: 1, x: 0, y: 0};
+function setZoom(s, x, y) {
+  const W = pad.clientWidth, H = pad.clientHeight;
+  s = clamp(s, 1, 5);
+  Z.s = s; Z.x = clamp(x, W - W * s, 0); Z.y = clamp(y, H - H * s, 0);
+  const t = Z.s === 1 ? '' : `translate(${Z.x}px,${Z.y}px) scale(${Z.s})`;
+  scr.style.transform = t; glView.style.transform = t;
+  drawCursor();
+}
+function zoomBegin(m) {
+  const c = padLocal(m.cx, m.cy);
+  g.zs = {s: Z.s, x: Z.x, y: Z.y, d0: m.d0 || 1, px: (c.lx - Z.x) / Z.s, py: (c.ly - Z.y) / Z.s};
+  showBadge('缩放');
+}
+function zoomPinch(cur) {
+  if (cur.length !== 2) return;
+  const z = g.zs, d = Math.hypot(cur[0].clientX - cur[1].clientX, cur[0].clientY - cur[1].clientY);
+  const s = clamp(z.s * d / z.d0, 1, 5), c = padLocal((cur[0].clientX + cur[1].clientX) / 2, (cur[0].clientY + cur[1].clientY) / 2);
+  setZoom(s, c.lx - z.px * s, c.ly - z.py * s);      // 两指中间那一点一直在手指下面
+  showBadge(s > 1.02 ? s.toFixed(1) + '×' : '缩放');
+}
+function zoomEnd() { if (Z.s < 1.1) setZoom(1, 0, 0); }
+function panView(dx, dy) { setZoom(Z.s, Z.x + dx, Z.y + dy); }
+
+// ---------- 手机自己画的光标 ----------
+// Mac 每 33 ms 报一次光标位置（带上已处理到第几条移动），手机在它的基础上加上还没被处理的移动：手指一动光标就动
+const CUR = {on: false, x: 0.5, y: 0.5, hold: 0, img: null};
+const pendMoves = [];
+let moveSeq = 0;
+function onCursor(m) {
+  if (!S.localCursor) return;
+  while (pendMoves.length && pendMoves[0].s <= m.s) pendMoves.shift();
+  if (performance.now() > CUR.hold) { CUR.x = m.x; CUR.y = m.y; }
+  if (!CUR.on) { CUR.on = true; $('#cur').classList.add('on'); }
+  drawCursor();
+}
+function onCursorImg(m) {
+  CUR.img = {w: m.w, h: m.h, hx: m.hx, hy: m.hy};
+  $('#cur img').src = 'data:image/png;base64,' + m.png;
+  drawCursor();
+}
+// 画面在 pad 里的位置（object-fit: contain 之后，没放大时）
+function contentRect() {
+  const W = pad.clientWidth, H = pad.clientHeight;
+  const k = Math.min(W / view.width, H / view.height), dw = view.width * k, dh = view.height * k;
+  return {ox: (W - dw) / 2, oy: (H - dh) / 2, dw, dh, W, H};
+}
+function cursorNow() {
+  let x = CUR.x, y = CUR.y;
+  const w = scrInfo.w || 1440, h = scrInfo.h || 900;
+  for (const p of pendMoves) { x += p.dx / w; y += p.dy / h; }
+  return {x: clamp(x, 0, 1), y: clamp(y, 0, 1)};
+}
+function drawCursor(follow) {
+  const el = $('#cur');
+  if (!CUR.on || !view.width || !CUR.img) return;
+  const r = contentRect(), p = cursorNow();
+  let px = r.ox + p.x * r.dw, py = r.oy + p.y * r.dh;
+  // 触控板模式放大着：光标快出视野时，视野跟着移
+  if (follow && Z.s > 1.02 && !touchMode()) {
+    const sx = Z.x + px * Z.s, sy = Z.y + py * Z.s, mx = r.W * 0.18, my = r.H * 0.18;
+    let nx = Z.x, ny = Z.y;
+    if (sx < mx) nx += mx - sx; else if (sx > r.W - mx) nx -= sx - (r.W - mx);
+    if (sy < my) ny += my - sy; else if (sy > r.H - my) ny -= sy - (r.H - my);
+    if (nx !== Z.x || ny !== Z.y) { setZoom(Z.s, nx, ny); return; }
+  }
+  const ppp = r.dw / (scrInfo.w || 1440) * Z.s;               // 每个 Mac 点在手机上多少 CSS 像素
+  const longest = Math.max(CUR.img.w, CUR.img.h) || 1;
+  const k = clamp(ppp, 18 / longest, 56 / longest);          // 光标别太小也别太大
+  const w = CUR.img.w * k, h = CUR.img.h * k;
+  const x = Z.x + px * Z.s - CUR.img.hx * k, y = Z.y + py * Z.s - CUR.img.hy * k;
+  el.style.width = w + 'px'; el.style.height = h + 'px';
+  el.style.transform = `translate(${x}px,${y}px)`;
+}
+
 // Apple Pencil 落点 → Mac 屏幕相对位置。开着屏幕时点画面上的位置；没开屏幕时整块触控板对应整个 Mac 屏幕（像数位板）
 function penPoint(t, clampIt) {
   if (screenOn && view.width) return screenPoint(t.clientX, t.clientY, clampIt);
@@ -1554,7 +1662,8 @@ bind('#sInertia', 'inertia', true); bind('#sPaste', 'paste', true); bind('#sHapt
 bind('#sImm', 'immersive', true); $('#sImm').addEventListener('change', updateLayout);
 bind('#sUnlock', 'autoUnlock', true);
 bind('#sPin', 'pinSide', true);
-bind('#sClip', 'clipSync', true); $('#sPin').addEventListener('change', updateLayout);
+bind('#sClip', 'clipSync', true);
+bind('#sCur', 'localCursor', true); $('#sCur').addEventListener('change', () => { if (screenOn) subscribeScreen(); }); $('#sPin').addEventListener('change', updateLayout);
 bind('#sFit', 'fitMac', true); $('#sFit').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 bind('#sScribble', 'scribble', true);
 bind('#sTapAt', 'tapAt', true); bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLand', true); bind('#sVideo', 'video', true);

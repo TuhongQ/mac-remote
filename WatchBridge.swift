@@ -837,7 +837,8 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
         if m["on"] as? Bool == true {
             Waker.poke(ip: s.ip, reply: { s.send($0) })    // 屏幕睡着时看到的是黑屏，先点亮
             ScreenStreamer.shared.subscribe(s, width: Int(num(m["w"])), fps: Int(num(m["fps"])),
-                                            ack: m["ack"] as? Bool == true, video: m["codec"] as? String == "h264")
+                                            ack: m["ack"] as? Bool == true, video: m["codec"] as? String == "h264",
+                                            cursor: m["cursor"] as? Bool == true)
             if let f = m["fit"] as? [String: Any], num(f["w"]) > 0, num(f["h"]) > 0 {
                 // 让 Mac 改用这台设备的屏幕比例（铺满不留黑边）
                 fitter.request(me, w: Int(num(f["w"])), h: Int(num(f["h"])))
@@ -888,6 +889,49 @@ func handleRemote(_ m: [String: Any], _ s: WebSocketSession) {
             log("\(ip) Pencil 点击：\(info)，\(editable ? "弹出手写板" : "不弹手写板")")
             s.send(["t": "textFocus", "id": id, "editable": editable, "role": info])
         }
+    }
+}
+
+/// 手机上的光标（参考 Glass / voxl）：光标由手机自己画，手指一动就跟上，不用等画面传回来。
+/// 这里每 33 ms 报一次光标在画面里的位置（带上已处理到第几条移动，手机据此对齐预测），形状变了发一张图
+var lastMoveSeq = 0
+final class CursorReporter {
+    static let shared = CursorReporter()
+    private var timer: Timer?
+    private var lastPos = CGPoint(x: -1, y: -1), lastSeq = -1, lastSent = Date.distantPast
+    private var lastShape: Int?
+
+    /// 在主线程调用
+    func start(resendShape: Bool) {
+        if resendShape { lastShape = nil }
+        guard timer == nil else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in self?.tick() }
+    }
+
+    private func tick() {
+        let targets = ScreenStreamer.shared.cursorSessions()
+        guard !targets.isEmpty else { timer?.invalidate(); timer = nil; return }
+        let b = CGDisplayBounds(ScreenStreamer.shared.displayID)
+        let at = CGEvent(source: nil)?.location ?? .zero
+        let now = Date()
+        if at != lastPos || lastMoveSeq != lastSeq || now.timeIntervalSince(lastSent) > 1 {
+            lastPos = at; lastSeq = lastMoveSeq; lastSent = now
+            let msg: [String: Any] = ["t": "cur", "x": Double((at.x - b.minX) / b.width), "y": Double((at.y - b.minY) / b.height),
+                                      "s": lastMoveSeq]
+            for t in targets { t.send(msg) }
+        }
+        // 形状：系统当前的光标（哪个 App 设的都行）；变了才发
+        guard let c = NSCursor.currentSystem else { return }
+        let img = c.image
+        guard let tiff = img.tiffRepresentation else { return }
+        var h = Hasher(); h.combine(tiff); h.combine(c.hotSpot.x); h.combine(c.hotSpot.y)
+        let key = h.finalize()
+        guard key != lastShape, let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return }
+        lastShape = key
+        let shape: [String: Any] = ["t": "curImg", "png": png.base64EncodedString(), "w": Double(img.size.width), "h": Double(img.size.height),
+                                    "hx": Double(c.hotSpot.x), "hy": Double(c.hotSpot.y)]
+        for t in targets { t.send(shape) }
     }
 }
 
@@ -1152,6 +1196,7 @@ func handleRemote(_ m: [String: Any], ip: String, reply: ([String: Any]) -> Void
     switch t {
     case "move":
         moveMouse(dx: num(m["dx"]), dy: num(m["dy"]))
+        if let q = m["s"] as? Int { lastMoveSeq = q }
     case "click":
         click(buttonFrom(m["b"]))
     case "down":
@@ -1758,6 +1803,7 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
         var sentAt: TimeInterval = 0
         var lastSeq = 0        // 已经发给它的最新画面编号
         var inflight = 0       // 已发出（视频：已编码）、还没收到回执的帧数
+        var cursor = false     // 手机自己画光标（画面里就不带光标，光标跟手不延迟）
         var encoder: H264Encoder?
         var forceKey = true
         init(_ s: WebSocketSession, width: Int, ack: Bool, video: Bool) {
@@ -1778,7 +1824,11 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
 
     var hasPermission: Bool { CGPreflightScreenCaptureAccess() }
 
-    func subscribe(_ s: WebSocketSession, width: Int, fps: Int, ack: Bool = false, video: Bool = false) {
+    /// 要手机自己画光标的会话（光标位置 / 形状发给它们）
+    func cursorSessions() -> [WebSocketSession] { queue.sync { subs.values.filter { $0.cursor }.map { $0.session } } }
+    private var cursorInVideo = true
+
+    func subscribe(_ s: WebSocketSession, width: Int, fps: Int, ack: Bool = false, video: Bool = false, cursor: Bool = false) {
         queue.async {
             guard CGPreflightScreenCaptureAccess() else {
                 DispatchQueue.main.async { _ = CGRequestScreenCaptureAccess() }  // 弹系统授权，并把 App 加进列表
@@ -1796,6 +1846,8 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
                 sub = Sub(s, width: w, ack: ack, video: video)
                 self.subs[ObjectIdentifier(s)] = sub
             }
+            sub.cursor = cursor
+            if cursor { DispatchQueue.main.async { CursorReporter.shared.start(resendShape: true) } }
             // 重新订阅 = 手机端解码器是新的，编码器也重建，从关键帧开始
             sub.encoder?.invalidate(); sub.encoder = nil; sub.forceKey = true
             let newFps = fps > 0 ? max(2, min(fps, 120)) : self.fps   // 120：ProMotion 的 iPhone / iPad（Mac 屏幕也要是 120Hz 才有那么多帧）
@@ -1858,7 +1910,9 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
         c.width = w
         c.height = Int((Double(w) * Double(display.height) / Double(display.width)).rounded()) & ~1
         c.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
-        c.showsCursor = true
+        // 所有在看的设备都自己画光标时，画面里就不带光标（不然会看到两个）
+        cursorInVideo = !(subs.values.contains { $0.cursor } && subs.values.allSatisfy { $0.cursor })
+        c.showsCursor = cursorInVideo
         c.pixelFormat = kCVPixelFormatType_32BGRA
         c.colorSpaceName = CGColorSpace.sRGB
         c.queueDepth = 6
@@ -1869,7 +1923,8 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
     /// 在 queue 上调用
     private func reconfigure() {
         if let st = stream, let d = currentDisplay {
-            if wantedWidth() & ~1 != captureWidth { st.updateConfiguration(makeConfig(display: d)) { _ in } }
+            let wantCursor = !(subs.values.contains { $0.cursor } && subs.values.allSatisfy { $0.cursor })
+            if wantedWidth() & ~1 != captureWidth || wantCursor != cursorInVideo { st.updateConfiguration(makeConfig(display: d)) { _ in } }
             return
         }
         guard !starting else { return }

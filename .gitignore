@@ -4,3 +4,31 @@ watch/build/
 *.xcuserstate
 xcuserdata/
 .DS_Store
+
+# Local environment and WatchBridge runtime data
+.env
+.env.*
+!.env.example
+!.env.sample
+/.config/watchbridge/
+/token
+/tls/
+/signing/
+
+# Local credentials, signed shortcuts, and packaged builds
+*.pem
+*.key
+*.p12
+*.pfx
+*.der
+*.cer
+*.keychain
+*.keychain-db
+*.mobileprovision
+*.mobileconfig
+*.shortcut
+*.app/
+*.dSYM/
+*.exe
+*.ipa
+*.dmg
