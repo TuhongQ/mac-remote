@@ -18,7 +18,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;overscroll-behavior:none}
-/* 高度由脚本设成实际能显示的高度（window.innerHeight）：Safari 地址栏收起 / 主屏幕 App 都正好铺满，不会超出屏幕被挡住；弹出键盘时改成键盘上方的高度 */
+/* 高度由脚本随 Safari 地址栏和主屏幕 App 的可用空间调整。 */
 body{position:fixed;top:0;left:0;right:0;height:100vh;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body.ipad.land #side{width:84px}
 .penhint{display:none} body.ipad .penhint{display:block}
@@ -117,7 +117,7 @@ body.land #side{display:flex;flex-direction:column;gap:8px;width:68px;flex:none}
 .sbtn.big{flex:1.5}
 .sbtn.on,.sbtn:active{background:var(--btn-on);color:var(--fg)}
 /* 横屏时快捷 / 设置面板浮在画面上 */
-body.land .sheet.open{position:absolute;top:8px;bottom:8px;right:84px;width:min(440px,62%);overflow-y:auto;z-index:5;max-height:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+body.land .sheet.open:not(#sheetKb){position:absolute;top:8px;bottom:8px;right:84px;width:min(440px,62%);overflow-y:auto;z-index:5;max-height:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 /* 手机竖着拿时，把整个界面转 90°（手机向左横过来看） */
 body.rot #app{position:absolute;top:0;left:0;width:var(--H);height:var(--W);transform-origin:0 0;transform:translateX(var(--W)) rotate(90deg);
   padding:8px calc(var(--safe-b) + 8px) 8px calc(var(--safe-t) + 8px)}
@@ -137,9 +137,15 @@ body.imm #fab{display:flex;position:absolute;z-index:7;right:calc(env(safe-area-
   width:48px;height:48px;border-radius:50%;border:0;padding:0;align-items:center;justify-content:center;color:#fff;
   background:rgba(20,21,25,.45);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);opacity:.55;touch-action:none;transition:opacity .2s}
 body.imm.sideOpen #fab{opacity:.95}
-body.imm .sheet.open{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);bottom:12px;right:104px;width:min(440px,62%);overflow-y:auto;z-index:8;max-height:none;
+body.imm .sheet.open:not(#sheetKb){position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);bottom:12px;right:104px;width:min(440px,62%);overflow-y:auto;z-index:8;max-height:none;
   background:rgba(24,25,29,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 8px 30px rgba(0,0,0,.5)}
 body.imm #fps{top:10px;left:12px}
+#ipadStreamStatus{display:none}
+body.ipad.screen-on #fps{display:none}
+body.ipad.screen-on #ipadStreamStatus{display:block;position:absolute;z-index:4;
+  top:6px;left:25%;transform:translateX(-50%);width:max-content;pointer-events:none;
+  color:#fff;background:transparent;text-shadow:0 1px 2px rgba(0,0,0,.8);
+  font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 /* 全屏时按钮一直显示（iPhone 默认）：右边一条窄栏，在画面旁边不挡画面，不自动收起 */
 body.imm.pin #side,body.imm.pin:not(.sideOpen) #side{position:static;transform:none;opacity:1;pointer-events:auto;flex:none;
   width:auto;height:auto;gap:5px;margin:0;padding:6px max(5px,calc(env(safe-area-inset-right,0px) - 40px)) 6px 5px;
@@ -153,7 +159,50 @@ body.imm.pin .sbtn svg.i{width:18px;height:18px;stroke-width:1.7}
 body.imm.pin .sbtn.on,body.imm.pin .sbtn:active{background:rgba(76,141,255,.5);color:#fff}
 body.imm.pin #sExit{color:#ff8a8a}
 body.imm.pin #sMode{font-size:10px;letter-spacing:-.5px}
-body.imm.pin .sheet.open{right:56px}
+body.imm.pin .sheet.open:not(#sheetKb){right:56px}
+/* 浮动键盘使用遥控画面的坐标，和画面一起旋转。 */
+#sheetKb.open{position:absolute;z-index:11;display:flex;flex-direction:column;gap:4px;
+  width:min(365px,calc(100% - var(--kb-left) - var(--kb-right)));overflow:hidden;
+  max-height:calc(100% - var(--kb-top) - var(--kb-bottom));padding:4px 6px;border-radius:14px;
+  background:rgba(24,25,29,.97);box-shadow:0 8px 26px rgba(0,0,0,.45)}
+.kb-head,.kb-edit,.kb-keys>div{display:flex;align-items:center;gap:4px}
+.kb-head{flex:none}
+#kbDrag{flex:1;min-width:0;padding:0 6px;line-height:28px;color:var(--dim);font-size:13px;touch-action:none;cursor:grab}
+#kbDrag:active{cursor:grabbing}
+#kbBody{min-height:0;overflow:auto;overscroll-behavior:contain}
+#sheetKb .k{height:28px;padding:0 7px;font-size:12px;white-space:nowrap}
+#sheetKb select{width:auto;height:28px;padding:0 3px;font-size:12px;color:var(--fg);background:var(--pad);border:1px solid var(--line);border-radius:8px}
+.kb-edit{margin-bottom:4px}
+#sheetKb textarea{flex:1;min-width:0;margin:0;height:33px;padding:5px 8px}
+#sheetKb.native .kb-edit{flex-wrap:wrap}
+#sheetKb.native textarea{flex-basis:100%;height:clamp(48px,23vh,100px);height:clamp(48px,calc(var(--H) * .27),100px);line-height:1.4}
+#sheetKb.native #btnSend{margin-left:auto}
+#sheetKb:is(.native,.system-docked) #kbDrag{cursor:default;touch-action:auto}
+#sheetKb [hidden]{display:none}
+.kb-keys{display:grid;gap:2px}
+.kb-keys>div:nth-child(2){padding-inline:4%}
+#sheetKb .kb-keys .k{flex:1;min-width:0;padding:0;height:28px;font-size:15px;touch-action:manipulation}
+#sheetKb .kb-keys .wide{flex:1.65;font-size:12px}
+#sheetKb .kb-keys .space{flex:5;font-size:12px}
+#kbMore{margin-top:4px}
+#btnKbMore{font-size:16px}
+#kbMore .grid{grid-template-columns:repeat(5,1fr)}
+body.ipad #sheetKb.open{width:min(clamp(440px,64%,660px),calc(100% - var(--kb-left) - var(--kb-right)));
+  padding:clamp(6px,1vmin,12px);gap:6px}
+body.ipad .kb-head,body.ipad .kb-edit,body.ipad .kb-keys>div{gap:6px}
+body.ipad .kb-keys{gap:4px}
+body.ipad #sheetKb .k,body.ipad #sheetKb select{height:clamp(32px,4.4vmin,42px);font-size:14px}
+body.ipad #sheetKb .kb-keys .k{height:clamp(34px,5vmin,48px);font-size:19px}
+body.ipad #sheetKb .kb-keys .wide,body.ipad #sheetKb .kb-keys .space{font-size:15px}
+body.ipad #sheetKb textarea{height:clamp(36px,5vmin,48px);padding:7px 10px}
+body.ipad #sheetKb.native textarea{height:clamp(60px,calc(var(--H) * .28),140px)}
+body #sheetKb.open.system-docked{width:calc(100% - var(--kb-left) - var(--kb-right));
+  padding-inline:max(8px,var(--kb-safe-x));border-radius:16px 16px 0 0;background:var(--pad);
+  box-shadow:0 -4px 18px rgba(0,0,0,.28)}
+#sheetKb.system-docked .kb-head,#sheetKb.system-docked #kbBody{width:100%;max-width:660px;align-self:center}
+body #sheetKb.open.system-docked textarea{height:clamp(44px,calc((var(--H) - var(--kb-top) - var(--kb-bottom)) * .2),96px)}
+#sheetKb.system-docked .kb-keys,#sheetKb.system-docked #kbMore,#sheetKb.system-docked #btnKbMore{display:none}
+
 /* Pencil 手写板：用 iPad 自带的随手写（Scribble）把字写进来，实时打到 Mac 上 */
 #hw{display:none;position:absolute;inset:calc(env(safe-area-inset-top,0px) + 10px) 14px 14px;z-index:9;flex-direction:column;border-radius:22px;overflow:hidden;
   background:rgba(10,11,13,.5);box-shadow:0 0 0 2px rgba(76,141,255,.75),0 10px 40px rgba(0,0,0,.45)}
@@ -174,7 +223,6 @@ body.imm.pin .sheet.open{right:56px}
 <svg width="0" height="0" style="position:absolute">
   <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
   <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M6.5 13h.01M17 13h.01M10 13h3.5M8 15.5h8"/></symbol>
-  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
   <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 20.5h7M12 17v3.5"/></symbol>
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
@@ -195,6 +243,7 @@ body.imm.pin .sheet.open{right:56px}
       <canvas id="screenGL" class="view" width="0" height="0"></canvas>
       <div id="cur"><img alt=""></div>
       <div id="fps"></div>
+      <div id="ipadStreamStatus"></div>
       <button id="scrClose" aria-label="关闭屏幕"><svg class="i"><use href="#i-x"/></svg></button>
       <div id="hint">单指移动 · 轻点＝左键 · 连点＝双击<br>双指轻点＝右键 · 双指滑动＝滚动 · 捏合＝缩放<br>三指拖动＝按住左键拖 · 三指轻点＝中键<br>四指左右＝切换桌面 · 上滑＝调度中心<span class="penhint">Apple Pencil：直接点、拖动、写字</span></div>
       <div id="legend">双指滚动 · 双指轻点右键 · 三指拖动</div>
@@ -211,8 +260,7 @@ body.imm.pin .sheet.open{right:56px}
     <button class="sbtn" id="sMode" aria-label="切换触摸屏 / 触控板">触控板</button>
     <button class="sbtn big" id="sLeft">左键</button>
     <button class="sbtn big" id="sRight">右键</button>
-    <button class="sbtn" id="sKb" aria-label="键盘"><svg class="i"><use href="#i-kbd"/></svg></button>
-    <button class="sbtn" id="sVoice" aria-label="语音"><svg class="i"><use href="#i-mic"/></svg></button>
+    <button class="sbtn" id="sKb" aria-label="键盘与听写"><svg class="i"><use href="#i-kbd"/></svg></button>
     <button class="sbtn" id="sKeys" aria-label="快捷"><svg class="i"><use href="#i-cmd"/></svg></button>
     <button class="sbtn" id="sHw" aria-label="手写">✍️</button>
     <button class="sbtn" id="sSet" aria-label="设置"><svg class="i"><use href="#i-sliders"/></svg></button>
@@ -231,40 +279,6 @@ body.imm.pin .sheet.open{right:56px}
   </div>
   <!-- 全屏看屏幕时的小圆点：点一下弹出 / 收起按钮栏 -->
   <button id="fab" aria-label="显示按钮"><svg class="i"><use href="#i-grid"/></svg></button>
-
-  <!-- 键盘 / 语音 -->
-  <div class="sheet" id="sheetKb">
-    <div class="seg" id="kbMode">
-      <button data-m="live">实时输入</button>
-      <button data-m="text" class="on">整段发送</button>
-      <button data-m="cmd">语音指令</button>
-    </div>
-    <textarea id="ta" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="用 iPhone 输入法打字，或点键盘上的 🎤 听写"></textarea>
-    <div class="row" id="sendRow">
-      <button class="k" id="btnClear">清空</button>
-      <button class="k" id="btnSendEnter">发送+回车</button>
-      <button class="k pri" id="btnSend">发送</button>
-    </div>
-    <div class="grid" style="margin-top:8px">
-      <button class="k" data-key="esc">esc</button>
-      <button class="k" data-key="tab">⇥</button>
-      <button class="k" data-key="delete" data-repeat>⌫</button>
-      <button class="k" data-key="return">⏎</button>
-      <button class="k" data-key="left" data-repeat>←</button>
-      <button class="k" data-key="up" data-repeat>↑</button>
-      <button class="k" data-key="down" data-repeat>↓</button>
-      <button class="k" data-key="right" data-repeat>→</button>
-      <button class="k" data-key="cmd+a">⌘A</button>
-      <button class="k" data-key="cmd+c">⌘C</button>
-      <button class="k" data-key="cmd+v">⌘V</button>
-      <button class="k" data-key="cmd+z">⌘Z</button>
-      <button class="k" data-key="space">空格</button>
-      <button class="k" data-key="ctrl+space">切输入法</button>
-      <button class="k" data-key="cmd+space">聚焦</button>
-      <button class="k" id="btnKbHide">收起</button>
-    </div>
-    <div class="note" id="kbNote"></div>
-  </div>
 
   <!-- 快捷键 -->
   <div class="sheet" id="sheetKeys">
@@ -306,7 +320,6 @@ body.imm.pin .sheet.open{right:56px}
     <label>滚动惯性 <input type="checkbox" id="sInertia"></label>
     <label>用剪贴板粘贴文字 <input type="checkbox" id="sPaste"></label>
     <label>轻点震动反馈 <input type="checkbox" id="sHaptic"></label>
-    <label>看屏幕时点哪点哪 <input type="checkbox" id="sTapAt"></label>
     <label>看屏幕时自动横屏 <input type="checkbox" id="sAutoLand"></label>
     <div class="opt">看屏幕时的操作方式 <span class="seg" id="segMode"><button data-v="pad">触控板</button><button data-v="touch">触摸屏</button></span></div>
     <label>看屏幕时全屏（按钮收进小圆点） <input type="checkbox" id="sImm"></label>
@@ -318,20 +331,70 @@ body.imm.pin .sheet.open{right:56px}
     <label>Pencil 点到输入框时弹出手写板 <input type="checkbox" id="sScribble"></label>
     <label>视频模式（更流畅、更省流量） <input type="checkbox" id="sVideo"></label>
     <div class="note" id="videoNote" style="margin:0 0 6px"></div>
-    <label>屏幕帧率 <span id="fpsVal" style="color:var(--dim);font-size:13px;min-width:44px;text-align:right"></span><input type="range" id="sFps" min="10" max="120" step="5"></label>
+    <label>目标帧率 <span id="fpsVal" style="color:var(--dim);font-size:13px;min-width:44px;text-align:right"></span><input type="range" id="sFps" min="10" max="120" step="5"></label>
+    <div class="note" id="fpsNote" style="margin:0 0 6px" aria-live="polite"></div>
     <label>Token <input type="text" id="sToken" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <div class="note">在 Safari 里点「分享 → 添加到主屏幕」，之后像 App 一样全屏打开。若某些 App 收不到文字，打开「用剪贴板粘贴文字」。</div>
   </div>
 
   <nav>
     <button id="btnKb"><svg class="i"><use href="#i-kbd"/></svg>键盘</button>
-    <button id="btnVoice"><svg class="i"><use href="#i-mic"/></svg>语音</button>
     <button id="btnKeys"><svg class="i"><use href="#i-cmd"/></svg>快捷</button>
   </nav>
   <div id="toast"></div>
   <div id="clipBar"><span class="ico">📋</span><img alt="" hidden><span class="txt"></span><button id="clipCopy">拷到手机</button><button class="x" id="clipX">✕</button></div>
   <div id="clipImg"><img alt="Mac 剪贴板里的图片"><div>长按图片 →「拷贝」或「存储到照片」，点空白处关闭</div></div>
+  <!-- 键盘 / 语音 -->
+  <div class="sheet" id="sheetKb" role="region" aria-label="浮动键盘">
+    <div class="kb-head">
+      <div id="kbDrag" title="拖动键盘">⠿ 键盘</div>
+      <select id="kbMode" aria-label="输入模式">
+        <option value="text">整段发送</option>
+        <option value="live">实时输入</option>
+        <option value="cmd">语音指令</option>
+      </select>
+      <button class="k" type="button" id="btnKbNative">系统键盘</button>
+      <button class="k" type="button" id="btnKbMore" aria-label="更多按键" aria-controls="kbMore" aria-expanded="false">⋯</button>
+      <button class="k" type="button" id="btnKbHide">收起</button>
+    </div>
+    <div id="kbBody">
+      <div class="kb-edit">
+        <textarea id="ta" rows="1" readonly inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" aria-label="待发送文字" placeholder="整段文字"></textarea>
+        <button class="k" type="button" id="btnClear" aria-label="清空文字" hidden>清空</button>
+        <button class="k" type="button" id="btnSendEnter" hidden>发送并回车</button>
+        <button class="k pri" type="button" id="btnSend">发送</button>
+      </div>
+      <div class="kb-keys" id="kbKeys" aria-label="网页按键">
+        <div></div><div></div><div></div>
+        <div>
+          <button class="k wide" type="button" data-kb-action="symbols" aria-label="数字和符号">123</button>
+          <button class="k space" type="button" data-kb-action="space">空格</button>
+          <button class="k wide pri" type="button" data-kb-action="enter">回车</button>
+        </div>
+      </div>
+      <div id="kbMore" hidden>
+        <div class="grid">
+          <button class="k" data-key="esc">esc</button>
+          <button class="k" data-key="tab">⇥</button>
+          <button class="k" data-key="delete" data-repeat>⌫</button>
+          <button class="k" data-key="return" data-hide-keyboard>⏎</button>
+          <button class="k" data-key="left" data-repeat>←</button>
+          <button class="k" data-key="up" data-repeat>↑</button>
+          <button class="k" data-key="down" data-repeat>↓</button>
+          <button class="k" data-key="right" data-repeat>→</button>
+          <button class="k" data-key="cmd+a">⌘A</button>
+          <button class="k" data-key="cmd+c">⌘C</button>
+          <button class="k" data-key="cmd+v">⌘V</button>
+          <button class="k" data-key="cmd+z">⌘Z</button>
+          <button class="k" data-key="space">空格</button>
+          <button class="k" data-key="ctrl+space">切输入法</button>
+          <button class="k" data-key="cmd+space">聚焦</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
 <label id="hap"><input type="checkbox" switch></label>
 <div id="safeProbe" style="position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"></div>
 
@@ -341,21 +404,36 @@ const $ = s => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // ---------- 设置 ----------
-const DEF = {speed: 2.2, scroll: 1.6, natural: true, inertia: true, paste: false, haptic: true, tapAt: true, fps: 30, autoLand: true, video: true};
+const DEF = {speed: 2.2, scroll: 1.6, natural: true, inertia: true, paste: false, haptic: true, fps: 30, autoLand: true, video: true};
 let S = Object.assign({}, DEF);
 try { Object.assign(S, JSON.parse(localStorage.getItem('wb.settings') || '{}')); } catch (e) {}
 if (S.fpsV !== 2) { S.fps = 30; S.fpsV = 2; }   // 帧率上限提到 60 后，旧的默认值 12 换成 30
 if (S.vMaxV !== 2) { delete S.vMaxW; S.vMaxV = 2; }   // 视频最高分辨率提到 2880 后，之前降下来的档位重新试一次
 const saveS = () => { try { localStorage.setItem('wb.settings', JSON.stringify(S)); } catch (e) {} };
 
-let TOKEN = new URLSearchParams(location.search).get('token') || '';
+const pageParams = new URLSearchParams(location.search);
+const requestedFps = Number(pageParams.get('fps'));
+if (location.protocol === 'https:' && requestedFps >= 10 && requestedFps <= 120 && requestedFps % 5 === 0) {
+  S.fps = requestedFps;
+  S.video = true;
+  saveS();
+  pageParams.delete('fps');
+  history.replaceState(history.state, '', location.pathname + '?' + pageParams + location.hash);
+}
+let TOKEN = pageParams.get('token') || '';
 try {
   if (TOKEN) localStorage.setItem('wb.token', TOKEN);
   else TOKEN = localStorage.getItem('wb.token') || '';
 } catch (e) {}
 
 // ---------- 设备 ----------
+const IPHONE = /iPhone/.test(navigator.userAgent);
 const IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !/iPhone|Android/.test(navigator.userAgent));
+function isLandscape() {
+  // iPhone 的系统方向不受软键盘挤压可见区域的影响。
+  if (IPHONE && typeof window.orientation === 'number') return Math.abs(window.orientation) === 90;
+  return document.body.clientWidth > window.innerHeight;
+}
 if (IPAD) document.body.classList.add('ipad');
 if (S.immersive === undefined) S.immersive = true;   // 默认全屏看屏幕
 if (S.fitMac === undefined) S.fitMac = true;         // 默认让 Mac 适配本机的屏幕比例
@@ -380,9 +458,10 @@ function toast(msg, bad) {
 function haptic() { if (S.haptic) try { $('#hap').click(); } catch (e) {} }
 
 // ---------- 连的是 Mac 还是 Windows：按钮上的说法跟着换（发出的按键名不变，Windows 端自己翻译）----------
-let hostOS = 'mac';
+let hostOS = 'mac', hostKeyboardFocus = false;
 function applyOS(m) {
   hostOS = m.os || 'mac';
+  hostKeyboardFocus = hostOS === 'mac' || m.keyboardFocus === true;
   if (hostOS !== 'windows') return;
   document.title = 'PC 遥控';
   document.querySelectorAll('.mac-only').forEach(e => e.style.display = 'none');   // Windows 不能遥控解锁
@@ -399,8 +478,8 @@ function applyOS(m) {
 }
 
 // ---------- 连接 ----------
-let pageVer = null;
-let kbIsUp = false;   // iPhone / iPad 屏幕键盘弹出来了   // 网页版本（Mac 发来的 remote.html 指纹），变了就自动刷新
+let pageVer = null, hostTextReceipt = false;
+let kbIsUp = false;   // 系统键盘占用了网页可见区域
 let ws = null, retry = 0, fatal = false, pingId = 0, pingSent = {}, latency = null;
 function setStatus(state, text) { $('#dot').className = state; $('#status').textContent = text; }
 function connect() {
@@ -408,6 +487,7 @@ function connect() {
   if (!TOKEN) { setStatus('', '缺少 token，请在设置里填写'); openSheet('settings'); return; }
   setStatus('wait', '连接中…');
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  hostTextReceipt = false;
   ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(TOKEN)}`);
   ws.binaryType = 'arraybuffer';
   ws.onopen = () => { lastRx = performance.now(); retry = 0; setStatus('ok', '已连接 ' + location.hostname); ping(); if (screenOn) subscribeScreen(); };
@@ -420,7 +500,7 @@ function connect() {
       else { codec = m.codec || 'jpeg'; hostStatsOK = m.stats === true; }
       return;
     }
-    if (m.t === 'hello') { applyOS(m); if (m.locked) onLocked(m.unlock); }
+    if (m.t === 'hello') { hostTextReceipt = m.textReceipt === true; applyOS(m); if (m.locked) onLocked(m.unlock); }
     if (m.t === 'hello' && m.page) {
       if (pageVer && pageVer !== m.page) { location.reload(); return; }
       pageVer = m.page;
@@ -441,10 +521,14 @@ function connect() {
       if (!m.ok) toast('Mac 没能改成这块屏幕的比例，先按原比例显示', true);
     } else if (m.t === 'textFocus') {
       if (m.id === penTapId && m.editable && S.scribble) hwOpen();
+    } else if (m.t === 'keyboardFocus') {
+      onKeyboardFocus(m);
     } else if (m.t === 'clip') {
       if (S.clipSync) showClip(m);
     } else if (m.t === 'locked') {
       onLocked(m.unlock);
+    } else if (m.t === 'textReceipt') {
+      finishKbText(m.id, m.ok ? '' : (m.text || '电脑没能发送文字'));
     } else if (m.t === 'reply') {
       toast(m.text, !m.ok);
     } else if (m.t === 'error') {
@@ -455,16 +539,19 @@ function connect() {
 }
 function lost() {
   ws = null;
+  keyboardFocusRequest = null;
+  if (kbPending) finishKbText(kbPending.id, '连接中断，文字已保留');
   if (fatal) return;
   if (document.visibilityState !== 'visible') { setStatus('', '已断开'); return; }   // 在后台不重连，回到前台再连
   setStatus('', '已断开，重连中…');
   setTimeout(connect, Math.min(3000, 300 * 2 ** retry++));
 }
 function send(o) {
-  if (!ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify(o));
+  if (!ws || ws.readyState !== 1) return false;
+  try { ws.send(JSON.stringify(o)); } catch (e) { return false; }
   // 点哪点哪 / 拖动 / 笔：光标马上画到那里，不等 Mac 报回来
   if (CUR.on && (o.t === 'moveTo' || o.t === 'clickAt' || o.t === 'pen') && o.x != null) { CUR.x = o.x; CUR.y = o.y; CUR.hold = performance.now() + 250; pendMoves.length = 0; drawCursor(); }
+  return true;
 }
 function ping() { const id = ++pingId; pingSent[id] = performance.now(); send({t: 'ping', id}); }
 setInterval(() => { if (document.visibilityState === 'visible') ping(); }, 3000);
@@ -586,12 +673,12 @@ function abortGesture() {
 }
 
 // ---------- Apple Pencil：笔尖直接点、拖、写字；手指照旧当触控板 ----------
-let pen = null, penSeen = false;
+let pen = null;
 const stylusIn = list => { for (const t of list) if (t.touchType === 'stylus') return t; return null; };
 function penStart(t) {
+  keyboardFocusRequest = null;
   abortGesture();
   stopMomentum();
-  penSeen = true;
   const p = penPoint(t, false);
   pen = {id: t.identifier, live: !!p, t0: performance.now(), x0: t.clientX, y0: t.clientY, far: false};
   if (p) { send({t: 'pen', p: 0, x: p.x, y: p.y}); pad.classList.add('active'); }
@@ -603,12 +690,13 @@ function penMove(t) {
   const p = penPoint(t, true); send({t: 'pen', p: 1, x: p.x, y: p.y});
 }
 let penTapId = 0;
-function penEnd(t) {
+function penEnd(t, cancelled) {
   if (pen.live) {
     const p = penPoint(t, true), msg = {t: 'pen', p: 2, x: p.x, y: p.y};
-    // 轻点（没怎么动、很快抬笔）：Mac 点完会看看点到的是不是输入框
-    if (!pen.far && performance.now() - pen.t0 < 400) { msg.tap = true; msg.id = ++penTapId; }
-    send(msg);
+    // 轻点（没怎么动、很快抬笔）：电脑点完会看看点到的是不是输入框
+    const tap = !cancelled && !pen.far && performance.now() - pen.t0 < 400;
+    if (tap && S.scribble) { msg.tap = true; msg.id = ++penTapId; }
+    if (tap && !S.scribble) sendTextTarget(msg); else send(msg);
   }
   pen = null; pad.classList.remove('active');
 }
@@ -671,7 +759,7 @@ pad.addEventListener('touchstart', e => {
   if (pen) return;                  // 用笔时手掌碰到屏幕不算
   stopMomentum();
   const now = performance.now();
-  if (!g) g = newGesture(now);
+  if (!g) { keyboardFocusRequest = null; g = newGesture(now); }
   for (const t of e.changedTouches) {
     if (t.touchType === 'stylus') continue;
     g.f.set(t.identifier, {x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY});
@@ -830,9 +918,15 @@ function startTouch(m, cur, now) {
 
 function endGesture(e) {
   e.preventDefault();
-  if (pen) { const t = penTouch(e); if (t) penEnd(t); return; }
+  if (pen) { const t = penTouch(e); if (t) penEnd(t, e.type === 'touchcancel'); return; }
   if (!g) return;
-  for (const t of e.changedTouches) g.f.delete(t.identifier);
+  if (e.type === 'touchcancel') g.cancelled = true;
+  for (const t of e.changedTouches) {
+    const finger = g.f.get(t.identifier);
+    if (!finger) continue;
+    g.disp = Math.max(g.disp, Math.hypot(t.clientX - finger.x0, t.clientY - finger.y0));
+    g.f.delete(t.identifier);
+  }
   const left = [...e.targetTouches].filter(t => g.f.has(t.identifier));
   if (left.length > 0) {              // 还有手指没抬起
     g.n = left.length;
@@ -841,7 +935,7 @@ function endGesture(e) {
   }
   clearHold();
   flush();
-  const dur = performance.now() - g.start, cancel = e.type === 'touchcancel';
+  const dur = performance.now() - g.start, cancel = g.cancelled;
   const tap = !cancel && !g.scrollBegan && !g.down && !g.absDown && !g.held && g.sub !== 'pinch'
               && g.disp < TAP_SLOP && dur < (g.max > 1 ? MULTI_TAP_MS : TAP_MS);
   if (g.touch) touchEnd(tap, cancel); else padEnd(tap);
@@ -854,9 +948,8 @@ function endGesture(e) {
 function padEnd(tap) {
   if (g.down) send({t: 'up', b: 'left'});
   else if (tap) {
-    const at = g.max === 1 && screenOn && S.tapAt && !penSeen ? screenPoint(g.x0, g.y0) : null;
-    if (at) send({t: 'clickAt', x: at.x, y: at.y, b: 'left'});    // 看屏幕时：点哪点哪
-    else send({t: 'click', b: g.max >= 3 ? 'middle' : g.max === 2 ? 'right' : 'left'});
+    if (g.max === 1) sendTextTarget({t: 'click', b: 'left'});
+    else send({t: 'click', b: g.max >= 3 ? 'middle' : 'right'});
     haptic();
   } else if (g.scrollBegan) endScroll();
   else if (g.mode === 'swipe') swipeEnd();
@@ -867,7 +960,7 @@ function touchEnd(tap, cancel) {
   } else if (g.held) {
     if (!cancel) { send({t: 'clickAt', x: g.anchor.x, y: g.anchor.y, b: 'right'}); haptic(); }   // 长按松手 = 右键
   } else if (tap) {
-    if (g.max === 1) { const p = tapPoint(g.x0, g.y0); if (p) send({t: 'clickAt', x: p.x, y: p.y, b: 'left'}); }
+    if (g.max === 1) { const p = tapPoint(g.x0, g.y0); if (p) sendTextTarget({t: 'clickAt', x: p.x, y: p.y, b: 'left'}); }
     else if (g.multi) {
       const p = screenPoint(g.multi.cx, g.multi.cy, true);
       if (p) send({t: 'clickAt', x: p.x, y: p.y, b: g.max >= 3 ? 'middle' : 'right'});
@@ -918,25 +1011,123 @@ bindLeft($('#sLeft')); bindRight($('#sRight'));
 const sheets = {kb: $('#sheetKb'), keys: $('#sheetKeys'), settings: $('#settings')};
 const navBtn = {kb: $('#btnKb'), keys: $('#btnKeys'), settings: $('#btnSettings')};
 let openName = null;
+let keyboardFocusId = 0, keyboardFocusRequest = null;
+function sendTextTarget(packet) {
+  if (IPAD && screenOn && hostKeyboardFocus && !openName && !hw.classList.contains('open')) {
+    packet.keyboardFocusId = ++keyboardFocusId;
+    keyboardFocusRequest = {id: keyboardFocusId, time: performance.now()};
+  }
+  if (!send(packet) && packet.keyboardFocusId) keyboardFocusRequest = null;
+}
+function onKeyboardFocus(message) {
+  const request = keyboardFocusRequest;
+  if (!request || request.id !== message.id) return;
+  keyboardFocusRequest = null;
+  if (message.editable && screenOn && !openName && !hw.classList.contains('open')
+      && document.visibilityState === 'visible' && performance.now() - request.time < 2000) {
+    if (kbMode === 'cmd') setKbMode('text');
+    openSheet('kb');
+  }
+}
+
+let kbPositions = {}, kbDrag, kbDocked = false;
+const appView = $('#app');
+const kbPanel = sheets.kb;
+const kbHandle = $('#kbDrag');
+
+function keyboardLayout() {
+  return rotated || isLandscape() ? 'landscape' : 'portrait';
+}
+function positionKeyboard() {
+  if (openName !== 'kb') return;
+  const safe = getComputedStyle($('#safeProbe'));
+  const [t, r, b, l] = ['Top', 'Right', 'Bottom', 'Left']
+    .map(side => (parseFloat(safe['padding' + side]) || 0) + 8);
+  // 页面顺时针旋转后，遥控画面的上、右、下、左对应屏幕的右、下、左、上。
+  let [top, right, bottom, left] = rotated ? [r, b, l, t] : [t, r, b, l];
+  if (!rotated && (kbNative || kbDocked) && window.visualViewport) {
+    const vv = window.visualViewport;
+    const rect = appView.getBoundingClientRect();
+    top = Math.max(top, vv.offsetTop - rect.top + 8);
+    if (kbDocked) {
+      left = Math.max(0, vv.offsetLeft - rect.left);
+      right = Math.max(0, rect.right - vv.offsetLeft - vv.width);
+      bottom = Math.max(0, rect.bottom - vv.offsetTop - vv.height);
+    }
+  }
+  kbPanel.classList.toggle('system-docked', kbDocked);
+  kbPanel.style.setProperty('--kb-safe-x', Math.max(l, r) + 'px');
+  kbPanel.style.setProperty('--kb-left', left + 'px');
+  kbPanel.style.setProperty('--kb-right', right + 'px');
+  kbPanel.style.setProperty('--kb-top', top + 'px');
+  kbPanel.style.setProperty('--kb-bottom', bottom + 'px');
+  const maxX = Math.max(left, appView.clientWidth - right - kbPanel.offsetWidth);
+  const maxY = Math.max(top, appView.clientHeight - bottom - kbPanel.offsetHeight);
+  const position = kbNative || kbDocked ? null : kbPositions[keyboardLayout()];
+  kbPanel.style.left = clamp(position?.x ?? (left + maxX) / 2, left, maxX) + 'px';
+  kbPanel.style.top = clamp(position?.y ?? (kbDocked ? maxY : (top + maxY) / 2), top, maxY) + 'px';
+}
+
+function keyboardPoint(e) {
+  const rect = appView.getBoundingClientRect();
+  return rotated
+    ? {x: e.clientY - rect.top, y: rect.right - e.clientX}
+    : {x: e.clientX - rect.left, y: e.clientY - rect.top};
+}
+kbHandle.addEventListener('pointerdown', e => {
+  if (kbNative || kbDocked || !e.isPrimary || e.button !== 0) return;
+  e.preventDefault();
+  const {x, y} = keyboardPoint(e);
+  kbDrag = {id: e.pointerId, x: x - kbPanel.offsetLeft, y: y - kbPanel.offsetTop, rotated, layout: keyboardLayout()};
+  kbHandle.setPointerCapture(e.pointerId);
+});
+kbHandle.addEventListener('pointermove', e => {
+  if (kbDrag?.id !== e.pointerId) return;
+  if (kbDrag.rotated !== rotated || kbDrag.layout !== keyboardLayout()) {
+    kbHandle.releasePointerCapture(e.pointerId);
+    kbDrag = null;
+    return;
+  }
+  const {x, y} = keyboardPoint(e);
+  kbPositions[kbDrag.layout] = {x: x - kbDrag.x, y: y - kbDrag.y};
+  positionKeyboard();
+  kbPositions[kbDrag.layout] = {x: kbPanel.offsetLeft, y: kbPanel.offsetTop};
+});
+kbHandle.addEventListener('lostpointercapture', () => { kbDrag = null; });
+function setKbMore(open) {
+  $('#kbMore').hidden = !open;
+  $('#btnKbMore').setAttribute('aria-expanded', String(open));
+  positionKeyboard();
+}
+$('#btnKbMore').addEventListener('click', () => setKbMore($('#kbMore').hidden));
 function openSheet(name) {
+  keyboardFocusRequest = null;
+  if (name === 'kb' && openName !== 'kb') kbPositions = {};
   openName = name;
   for (const k in sheets) {
     sheets[k].classList.toggle('open', k === name);
     if (navBtn[k]) navBtn[k].classList.toggle('on', k === name);
   }
-  if (name !== 'kb') ta.blur();
-  updateLayout();
+  if (name !== 'kb') { setKbNative(false); setKbMore(false); }
+  $('#sKb').classList.toggle('on', name === 'kb');
+  $('#sKeys').classList.toggle('on', name === 'keys');
+  $('#sSet').classList.toggle('on', name === 'settings');
+  positionKeyboard();
 }
 const lastToggle = {};
 function debounced(name) { const now = Date.now(); if (now - (lastToggle[name] || 0) < 350) return true; lastToggle[name] = now; return false; }
 function toggleSheet(name) { if (!debounced(name)) openSheet(openName === name ? null : name); }
 $('#btnKeys').addEventListener('click', () => toggleSheet('keys'));
 $('#btnSettings').addEventListener('click', () => toggleSheet('settings'));
-$('#btnKb').addEventListener('click', () => {
+function toggleKeyboard() {
   if (debounced('kb')) return;
   if (openName === 'kb') { openSheet(null); return; }
-  openSheet('kb'); ta.focus();     // 必须在点击回调里同步 focus，iOS 才会弹键盘
-});
+  openSheet('kb');
+  if (IPAD || (IPHONE && !rotated)) setKbNative(true);
+  if (IPHONE && rotated) toast('关闭竖排方向锁定，横放 iPhone 后点「系统键盘」');
+}
+$('#btnKb').addEventListener('click', toggleKeyboard);
+$('#sKb').addEventListener('click', toggleKeyboard);
 
 // ---------- 剪贴板（参考 Glass）----------
 let clipData = null, clipTimer = null;
@@ -1023,7 +1214,8 @@ function onLocked(canUnlock) {
 // 快捷键 / 指令按钮；带 data-repeat 的按住会连发
 document.querySelectorAll('[data-key],[data-cmd],[data-act]').forEach(b => {
   const fire = () => {
-    if (b.dataset.key) send({t: 'key', key: b.dataset.key});
+    if (b.hasAttribute('data-hide-keyboard')) submit(kbMode !== 'cmd');
+    else if (b.dataset.key) send({t: 'key', key: b.dataset.key});
     else if (b.dataset.cmd) send({t: 'cmd', text: b.dataset.cmd, quiet: true});
     else if (b.dataset.act === 'mission') send({t: 'mission'});
     else if (b.dataset.act === 'unlock') send({t: 'unlock'});
@@ -1041,76 +1233,227 @@ document.querySelectorAll('[data-key],[data-cmd],[data-act]').forEach(b => {
 });
 
 // ---------- 文字输入 ----------
-const ta = $('#ta');
-let kbMode = 'text', composing = false;
-const NOTES = {
-  live: '实时输入：打一个字发一个字，支持中文输入法（选完候选词才发送）。⌫ 和 ⏎ 直接作用在 Mac 上。',
-  text: '整段发送：先在这里写好（可用键盘上的 🎤 听写），再点发送。适合长句和语音输入。',
-  cmd: '语音指令：说「打开微信」「音量调大」「下一首」「截图」等，点发送后在 Mac 上执行。',
-};
-function setKbMode(m) {
-  kbMode = m;
-  document.querySelectorAll('#kbMode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
-  $('#sendRow').style.display = m === 'live' ? 'none' : '';
-  $('#kbNote').textContent = NOTES[m];
-  ta.placeholder = m === 'live' ? '在这里打字，会实时出现在 Mac 上' : m === 'cmd' ? '例如：打开 Safari' : '用 iPhone 输入法打字，或点键盘上的 🎤 听写';
-  ta.setAttribute('enterkeyhint', m === 'live' ? 'enter' : 'send');
-  if (m === 'live') ta.value = '';
-}
-document.querySelectorAll('#kbMode button').forEach(b => b.addEventListener('click', () => { setKbMode(b.dataset.m); ta.focus(); }));
-setKbMode('text');
+const ta = $('#ta'), kbKeys = $('#kbKeys');
+const kbDrafts = {text: '', live: '', cmd: ''};
+const kbRows = [['qwertyuiop', 'asdfghjkl', 'zxcvbnm'], ['1234567890', '@#$%&*-+=', '!?.,:/_']];
+let kbMode = 'text', kbNative = false, composing = false, kbSubmitting = false;
+let kbSymbols = false, kbShift = false, kbPending = null, kbTextId = 0;
 
-function sendText(text) { if (text) send({t: 'text', text, paste: S.paste}); }
+function updateKbControls() {
+  $('#btnSend').hidden = kbMode === 'live' && !ta.value;
+  $('#btnSendEnter').hidden = !kbNative || kbMode !== 'text';
+  $('#btnClear').hidden = !kbNative;
+  $('#btnSend').disabled = $('#btnSendEnter').disabled = !!kbPending;
+  ta.placeholder = {text: '整段文字', live: '实时输入', cmd: '例如：打开 Safari'}[kbMode];
+}
+function setKbNative(on) {
+  if (kbNative === on) return;
+  kbNative = on;
+  if (document.activeElement === ta) ta.blur();
+  ta.readOnly = !on;
+  ta.inputMode = on ? 'text' : 'none';
+  kbKeys.hidden = on;
+  kbPanel.classList.toggle('native', on);
+  kbHandle.textContent = on ? '键盘' : '⠿ 键盘';
+  kbHandle.title = on ? '' : '拖动键盘';
+  $('#btnKbMore').hidden = on;
+  if (on) setKbMore(false);
+  $('#btnKbNative').textContent = on ? '网页键盘' : '系统键盘';
+  updateKbControls();
+  updateLayout();
+  if (on) ta.focus({preventScroll: true});
+  fit();
+}
+function setKbMode(mode) {
+  if (mode === kbMode) return;
+  kbDrafts[kbMode] = ta.value;
+  kbMode = mode;
+  ta.value = kbDrafts[mode];
+  updateKbControls();
+  if (kbNative) ta.focus();
+  positionKeyboard();
+}
+function kbButton(label, data, isAction = false, aria = '') {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = isAction ? 'k wide' : 'k';
+  b.textContent = label;
+  b.dataset[isAction ? 'kbAction' : 'kbChar'] = data;
+  if (aria) b.setAttribute('aria-label', aria);
+  return b;
+}
+function drawKbKeys() {
+  const rows = kbRows[Number(kbSymbols)];
+  rows.forEach((row, index) => {
+    const keys = [...(kbShift && !kbSymbols ? row.toUpperCase() : row)].map(c => kbButton(c, c));
+    if (index === 2) {
+      if (!kbSymbols) {
+        const shift = kbButton('⇧', 'shift', true, '大写');
+        shift.classList.toggle('on', kbShift);
+        shift.setAttribute('aria-pressed', String(kbShift));
+        keys.unshift(shift);
+      }
+      keys.push(kbButton('⌫', 'delete', true, '退格'));
+    }
+    kbKeys.children[index].replaceChildren(...keys);
+  });
+  const button = $('[data-kb-action="symbols"]');
+  button.textContent = kbSymbols ? 'ABC' : '123';
+  button.setAttribute('aria-label', kbSymbols ? '字母' : '数字和符号');
+}
+function kbEdit(text, backspace = false) {
+  let start = ta.selectionStart, end = ta.selectionEnd;
+  if (backspace && start === end) {
+    const before = ta.value.slice(0, start);
+    const last = window.Intl?.Segmenter
+      ? new Intl.Segmenter().segment(before).containing(start - 1)?.segment
+      : Array.from(before).pop();
+    start -= last?.length || 0;
+  }
+  ta.setRangeText(text, start, end, 'end');
+  ta.scrollTop = ta.scrollHeight;
+  updateKbControls();
+}
+function sendLive(o) {
+  if (send(o)) return true;
+  toast('连接后再发送', true);
+  return false;
+}
+function finishKbText(id, error = '') {
+  if (!kbPending || kbPending.id !== id) return;
+  const {value, mode, withEnter, timer} = kbPending;
+  clearTimeout(timer);
+  kbPending = null;
+  if (error) {
+    toast(error, true);
+  } else {
+    const draft = kbMode === mode ? ta.value : kbDrafts[mode];
+    if (draft === value) {
+      if (kbMode === mode) ta.value = '';
+      kbDrafts[mode] = '';
+      if (withEnter && openName === 'kb' && kbMode === mode) openSheet(null);
+    }
+    haptic();
+    if (!withEnter && mode !== 'cmd') toast('已发送文字');
+  }
+  updateKbControls();
+}
 function submit(withEnter) {
-  const v = ta.value.trim() ? ta.value : '';
-  if (!v && !withEnter) return;
-  if (kbMode === 'cmd') send({t: 'cmd', text: v});
-  else { sendText(v); if (withEnter) send({t: 'key', key: 'return'}); }
-  ta.value = '';
-  haptic();
+  if (kbSubmitting || kbPending) return;
+  if (composing) {
+    kbSubmitting = true;
+    const mode = kbMode;
+    ta.blur();
+    setTimeout(() => {
+      kbSubmitting = false;
+      if (mode !== kbMode || openName !== 'kb') return;
+      if (composing) { toast('请先确认候选词，再发送', true); return; }
+      submit(withEnter);
+    }, 0);
+    return;
+  }
+  const value = ta.value;
+  if (!value && !withEnter) return;
+  const mode = kbMode;
+  const command = mode === 'cmd' && value;
+  const paste = mode === 'text' || S.paste;
+  const id = ++kbTextId;
+  const packet = command ? {t: 'cmd', text: value} : {t: 'text', text: value, paste};
+  const receipt = !command && hostTextReceipt;
+  if (receipt) Object.assign(packet, {id, enter: withEnter});
+  const sent = receipt
+    ? send(packet)
+    : (!value || send(packet)) && (!withEnter || send({t: 'key', key: 'return'}));
+  if (!sent) { toast('连接后再发送，文字已保留', true); return; }
+  kbPending = {id, value, mode, withEnter, timer: null};
+  if (receipt) {
+    kbPending.timer = setTimeout(() => finishKbText(id, '未收到电脑确认，文字已保留'), 5000);
+    updateKbControls();
+  } else {
+    finishKbText(id);
+  }
 }
-function liveFlush() { if (kbMode === 'live' && !composing && ta.value) { sendText(ta.value); ta.value = ''; } }
+function liveFlush() {
+  if (kbMode !== 'live' || composing || !ta.value || kbPending) return;
+  if (sendLive({t: 'text', text: ta.value, paste: S.paste})) ta.value = '';
+  updateKbControls();
+}
 
+kbKeys.addEventListener('click', e => {
+  const key = e.target.closest('button');
+  if (!key) return;
+  const action = key.dataset.kbAction;
+  if (action === 'enter') { submit(kbMode !== 'cmd'); return; }
+  if (action === 'shift' || action === 'symbols') {
+    if (action === 'symbols') kbSymbols = !kbSymbols;
+    kbShift = action === 'shift' && !kbShift;
+    drawKbKeys();
+    return;
+  }
+  const char = action === 'space' ? ' ' : (key.dataset.kbChar || '');
+  if (kbMode === 'live' && !ta.value) {
+    if (action === 'delete' || action === 'space' || /^[a-z0-9]$/i.test(char)) {
+      const name = action || (kbShift ? 'shift+' + char.toLowerCase() : char);
+      if (!sendLive({t: 'key', key: name})) {
+        if (char) kbEdit(char);
+      }
+    } else if (!sendLive({t: 'text', text: char, paste: S.paste})) {
+      kbEdit(char);
+    }
+  } else {
+    kbEdit(char, action === 'delete');
+  }
+  if (kbShift && key.dataset.kbChar) { kbShift = false; drawKbKeys(); }
+});
+
+ta.addEventListener('click', () => { if (!kbNative) setKbNative(true); });
 ta.addEventListener('compositionstart', () => composing = true);
-ta.addEventListener('compositionend', () => { composing = false; setTimeout(liveFlush, 0); });
-ta.addEventListener('input', e => { if (!e.isComposing) liveFlush(); });
+ta.addEventListener('compositionend', () => {
+  composing = false;
+  setTimeout(() => { if (!kbSubmitting) liveFlush(); }, 0);
+});
+ta.addEventListener('input', e => {
+  if (!e.isComposing && !kbSubmitting) liveFlush();
+  updateKbControls();
+});
 ta.addEventListener('keydown', e => {
   if (e.isComposing || composing || e.keyCode === 229) return;
-  if (kbMode === 'live') {
-    if (e.key === 'Backspace' && !ta.value) { e.preventDefault(); send({t: 'key', key: 'delete'}); }
-    else if (e.key === 'Enter') { e.preventDefault(); send({t: 'key', key: 'return'}); }
-    else if (e.key === 'Tab') { e.preventDefault(); send({t: 'key', key: 'tab'}); }
-  } else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(false); }
-});
-// 输入框为空时部分 iOS 版本不发 keydown，用 beforeinput 兜底退格
-ta.addEventListener('beforeinput', e => {
-  if (kbMode === 'live' && !composing && e.inputType === 'deleteContentBackward' && !ta.value) { e.preventDefault(); send({t: 'key', key: 'delete'}); }
-});
-$('#btnSend').addEventListener('click', () => submit(false));
-$('#btnSendEnter').addEventListener('click', () => submit(true));
-$('#btnClear').addEventListener('click', () => { ta.value = ''; ta.focus(); });
-$('#btnKbHide').addEventListener('click', () => openSheet(null));
-
-// ---------- 语音 ----------
-// 网页语音识别要求 HTTPS，局域网 http 下通常不可用；那就用 iPhone 键盘自带的 🎤 听写（中文效果很好）
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null;
-$('#btnVoice').addEventListener('click', () => {
-  openSheet('kb');
-  if (kbMode === 'live') setKbMode('text');
-  if (SR && window.isSecureContext) {
-    if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = false;
-    const base = ta.value;
-    rec.onresult = ev => { let s = ''; for (const r of ev.results) s += r[0].transcript; ta.value = base + s; };
-    rec.onend = () => { rec = null; $('#btnVoice').classList.remove('on'); };
-    rec.onerror = ev => toast('语音识别失败：' + ev.error, true);
-    rec.start(); $('#btnVoice').classList.add('on'); toast('请说话…');
-  } else {
-    ta.focus();
-    toast('点键盘右下角的 🎤 开始听写，说完点「发送」');
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey && kbMode !== 'live') kbEdit('\n');
+    else submit(kbMode !== 'cmd');
+  } else if (kbMode === 'live' && e.key === 'Backspace' && !ta.value) {
+    e.preventDefault();
+    sendLive({t: 'key', key: 'delete'});
+  } else if (kbMode === 'live' && e.key === 'Tab') {
+    e.preventDefault();
+    sendLive({t: 'key', key: 'tab'});
   }
 });
+// 部分屏幕键盘只发 beforeinput，不发 keydown。
+ta.addEventListener('beforeinput', e => {
+  if (composing || e.isComposing || !e.cancelable) return;
+  if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+    e.preventDefault();
+    submit(kbMode !== 'cmd');
+  } else if (kbMode === 'live' && !ta.value && e.inputType === 'deleteContentBackward') {
+    e.preventDefault();
+    sendLive({t: 'key', key: 'delete'});
+  }
+});
+$('#kbMode').addEventListener('change', e => setKbMode(e.target.value));
+$('#btnKbNative').addEventListener('click', () => setKbNative(!kbNative));
+for (const id of ['#btnSend', '#btnSendEnter', '#btnClear']) {
+  $(id).addEventListener('pointerdown', e => {
+    if (kbNative && document.activeElement === ta) e.preventDefault();
+  });
+}
+$('#btnSend').addEventListener('click', () => submit(false));
+$('#btnSendEnter').addEventListener('click', () => submit(true));
+$('#btnClear').addEventListener('click', () => { ta.value = ''; updateKbControls(); if (kbNative) ta.focus(); });
+$('#btnKbHide').addEventListener('click', () => openSheet(null));
+drawKbKeys();
+updateKbControls();
 
 // ---------- 屏幕镜像 ----------
 // 两种画面：HTTPS 下用 H.264 视频（Mac 硬件编码 → 手机 WebCodecs 硬件解码，60 帧也流畅、流量小）；
@@ -1129,12 +1472,12 @@ function readHostStats(m) {
 }
 const scr = $('#screen');
 // 看屏幕时横屏显示：手机真的横过来就直接用横屏布局；竖着拿就把整个界面转 90°。
-// 打字时（键盘面板打开）恢复竖屏，因为 iPhone 的键盘总是按手机实际方向弹出来。
+// 用系统输入法编辑时跟随设备方向；网页按键始终跟随遥控画面。
 let rotated = false;
 function updateLayout() {
   const W = document.body.clientWidth, H = document.body.clientHeight;
-  const landscape = W > H;
-  const land = screenOn && (landscape || (S.autoLand && !IPAD && openName !== 'kb'));
+  const landscape = isLandscape();
+  const land = screenOn && (landscape || (S.autoLand && !IPAD && !kbNative && !kbDocked));
   rotated = land && !landscape;
   document.documentElement.style.setProperty('--W', W + 'px');
   document.documentElement.style.setProperty('--H', H + 'px');
@@ -1144,8 +1487,7 @@ function updateLayout() {
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('pin', imm && !!S.pinSide);
   if (!imm) document.body.classList.remove('sideOpen');
-  $('#sKeys').classList.toggle('on', openName === 'keys');
-  $('#sSet').classList.toggle('on', openName === 'settings');
+  positionKeyboard();
   if (screenOn) { clearTimeout(rsTimer); rsTimer = setTimeout(subscribeScreen, 300); }
   setZoom(Z.s, Z.x, Z.y);   // 尺寸变了，视野重新限制在画面里
 }
@@ -1180,12 +1522,18 @@ function fitSize() {
   return lastFit;
 }
 function setScreen(on) {
+  keyboardFocusRequest = null;
   screenOn = on;
   holdAwake(on);
   document.body.classList.toggle('screen-on', on);
   if (!on && openName) openSheet(null);
   $('#btnScreen').classList.toggle('on', on);
-  if (on) { if (openName) openSheet(null); updateLayout(); subscribeScreen(); }
+  if (on) {
+    if (openName) openSheet(null);
+    if (IPAD) $('#ipadStreamStatus').textContent = '连接画面中…';
+    updateLayout();
+    subscribeScreen();
+  }
   else {
     send({t: 'screen', on: false});
     scr.width = 0; scr.height = 0; glView.width = 0; glView.height = 0; nextBlob = null; resetVideo();
@@ -1405,19 +1753,27 @@ function videoError(e) {
 
 // http 打开时，试试 HTTPS 能不能用（装过并信任了 Mac 的证书才行）；能用就自动换过去，才有视频模式
 let httpsPort = 0, httpsOK = null, httpsWhy = '', probing = false;
+function httpsRemoteURL() {
+  const url = new URL(location.href);
+  url.protocol = 'https:';
+  url.port = httpsPort;
+  url.pathname = '/remote';
+  url.searchParams.set('token', TOKEN);
+  url.searchParams.set('fps', S.fps);
+  return url.href;
+}
 async function probeHttps(port) {
   if (httpsOK === true || probing) return;
   httpsPort = port; probing = true;
-  const ac = new AbortController(), t0 = Date.now(); let timedOut = false;
+  const ac = new AbortController(); let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; ac.abort(); }, 4000);
   try {
     await fetch(`https://${location.hostname}:${port}/ping`, {mode: 'no-cors', cache: 'no-store', signal: ac.signal});
     httpsOK = true; httpsWhy = '';
-    if (S.video) location.replace(`https://${location.hostname}:${port}/remote?token=${encodeURIComponent(TOKEN)}`);
+    if (S.video) location.replace(httpsRemoteURL());
   } catch (e) {
     httpsOK = false;
-    // 很快就失败 = 连上了但证书不被信任；超时 = 连不上 HTTPS 端口
-    httpsWhy = timedOut ? `${location.hostname}:${port} 连不上（超时）` : `${location.hostname}:${port} 被拒绝，${Date.now() - t0} ms：证书没装或没信任`;
+    httpsWhy = timedOut ? '连接 HTTPS 超时' : '当前页面的 HTTPS 检查失败';
   }
   clearTimeout(timer); probing = false;
   showVideoNote();
@@ -1436,7 +1792,7 @@ function modeLabel() {
 }
 // 告诉 Mac 这台设备的情况，写进日志方便排查
 function reportClient() {
-  send({t: 'client', dev: IPAD ? 'iPad' : /iPhone/.test(navigator.userAgent) ? 'iPhone' : 'other',
+  send({t: 'client', dev: IPAD ? 'iPad' : IPHONE ? 'iPhone' : 'other',
         secure: window.isSecureContext, webcodecs: typeof VideoDecoder === 'function', https: httpsOK, httpsWhy: httpsWhy || undefined,
         standalone: document.body.classList.contains('standalone'), dpr: window.devicePixelRatio || 1, hz: Math.round(refreshHz) || undefined,
         ua: ((navigator.userAgent.match(/OS [\d_]+/) || [''])[0] + ' ' + (navigator.userAgent.match(/Version\/[\d.]+/) || [''])[0]).trim(),
@@ -1456,8 +1812,15 @@ function showVideoNote() {
   if (VIDEO_OK) { n.textContent = S.video ? '已开启：H.264 硬件解码' : '已关闭：用 JPEG 图片'; return; }
   if (window.isSecureContext) { n.textContent = '这个浏览器不支持 WebCodecs，只能用图片模式。'; return; }
   const win = hostOS === 'windows';
-  n.innerHTML = (httpsWhy ? `刚才试了 HTTPS：${httpsWhy}。` : '') + `视频模式要用 HTTPS 打开（一次性设置）：①用 Safari <a href="/ca.cer">下载${win ? '电脑' : ' Mac '}的证书</a>，`
-    + `到「设置 → 已下载描述文件」安装；②「设置 → 通用 → 关于本机 → 证书信任设置」打开「${win ? 'PC 遥控' : 'Mac 遥控'} 本机证书」；③回来刷新本页，会自动换成 HTTPS。`;
+  n.innerHTML = (httpsWhy ? `${httpsWhy}。` : '') + `视频模式需要 HTTPS。首次使用请在 Safari <a href="/ca.cer">下载证书</a>并安装，再到「设置 → 通用 → 关于本机 → 证书信任设置」打开「${win ? 'PC 遥控' : 'Mac 遥控'} 本机证书」的完全信任。`;
+  if (httpsPort) {
+    const link = document.createElement('a');
+    link.textContent = '打开 HTTPS 遥控页';
+    link.href = httpsRemoteURL();
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    n.append(' 已完成证书设置？', link, '。如出现证书提示，请在 Safari 中打开并查看提示。');
+  }
 }
 
 function showFrame(blob) {
@@ -1587,7 +1950,8 @@ setInterval(() => {
     const target = screenTargetFps();
     const source = scrInfo.hz > 0 ? ` · 源 ${Math.round(scrInfo.hz)} Hz` : '';
     const host = hostStatsOK && hostRates && now - hostRates.at < 2500 ? `采集 ${hostRates.capture} · 编码 ${hostRates.encode} · ` : '';
-    $('#fps').textContent = `目标 ${target} FPS · ${modeLabel()}${source}\n${host}接收 ${receivedFps} · 绘制 ${drawnFps} FPS`;
+    if (IPAD) $('#ipadStreamStatus').textContent = `${drawnFps} FPS · ${codec === 'h264' ? '视频' : '图片'}`;
+    else $('#fps').textContent = `目标 ${target} FPS · ${modeLabel()}${source}\n${host}接收 ${receivedFps} · 绘制 ${drawnFps} FPS`;
     if (hostStatsOK && ws && ws.readyState === 1) send({t: 'screenStats', id: ++statsID});
   }
   frames = 0; receivedFrames = 0;
@@ -1669,7 +2033,7 @@ function showMode() {
 }
 function setTouchMode(v, quiet) {
   S.touchMode = v; saveS(); showMode();
-  if (!quiet) toast(v === 'touch' ? '触摸屏：点哪点哪 · 滑动滚动 · 长按右键 / 拖动 · 多指手势照用' : '触控板：手指推光标 · 轻点左键 · 双指滚动 / 右键');
+  if (!quiet) toast(v === 'touch' ? '触摸屏：点哪点哪 · 滑动滚动 · 长按右键 / 拖动 · 多指手势照用' : '触控板：单指轻点左键 · 双指轻点右键 · 双指滑动滚动');
 }
 $('#sMode').addEventListener('click', () => { if (!debounced('mode')) { setTouchMode(S.touchMode === 'touch' ? 'pad' : 'touch'); armSideHide(); haptic(); } });
 document.querySelectorAll('#segMode button').forEach(b => b.addEventListener('click', () => setTouchMode(b.dataset.v)));
@@ -1691,8 +2055,6 @@ $('#side').addEventListener('touchstart', armSideHide, {passive: true});
 // 摸画面（操作鼠标）时收起按钮栏；按住左键拖动时不收
 pad.addEventListener('touchstart', () => { if (isSideOpen() && !openName && !leftHeld) sideOpen(false); }, {passive: true});
 $('#sKeys').addEventListener('click', () => toggleSheet('keys'));
-$('#sKb').addEventListener('click', () => $('#btnKb').click());
-$('#sVoice').addEventListener('click', () => $('#btnVoice').click());
 
 // ---------- 设置面板 ----------
 const bind = (id, key, isBool) => {
@@ -1709,19 +2071,20 @@ bind('#sClip', 'clipSync', true);
 bind('#sCur', 'localCursor', true); $('#sCur').addEventListener('change', () => { if (screenOn) subscribeScreen(); }); $('#sPin').addEventListener('change', updateLayout);
 bind('#sFit', 'fitMac', true); $('#sFit').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 bind('#sScribble', 'scribble', true);
-bind('#sTapAt', 'tapAt', true); bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLand', true); bind('#sVideo', 'video', true);
+bind('#sFps', 'fps'); bind('#sAutoLand', 'autoLand', true); bind('#sVideo', 'video', true);
 $('#sVideo').addEventListener('change', () => {
   if (S.video) { vMaxW = 2880; delete S.vMaxW; saveS(); }
   showVideoNote();
   showFps();
   if (screenOn) subscribeScreen();
-  if (S.video && !VIDEO_OK && httpsOK) location.replace(`https://${location.hostname}:${httpsPort}/remote?token=${encodeURIComponent(TOKEN)}`);
+  if (S.video && !VIDEO_OK && httpsOK) location.replace(httpsRemoteURL());
 });
 showVideoNote();
 $('#sAutoLand').addEventListener('change', updateLayout);
 const showFps = () => {
   const target = screenTargetFps();
-  $('#fpsVal').textContent = target === S.fps ? target + ' 帧' : `${target} 帧（图片模式）`;
+  $('#fpsVal').textContent = `${S.fps} 帧`;
+  $('#fpsNote').textContent = target < S.fps ? `图片模式当前最多 ${target} 帧。开启 HTTPS 视频后会使用已选目标。` : '';
 };
 // 浏览器的绘制回调频率只作诊断。高帧率由用户选择，不随测量结果改动。
 let refreshHz = 0;
@@ -1747,7 +2110,7 @@ async function holdAwake(on) {
     } else if (!on && wakeLock) { wakeLock.release(); wakeLock = null; }
   } catch (e) {}
 }
-showFps(); $('#sFps').addEventListener('input', showFps);
+showFps(); $('#sFps').addEventListener('input', () => { showFps(); showVideoNote(); });
 $('#sFps').addEventListener('change', () => { if (screenOn) subscribeScreen(); });
 const tok = $('#sToken'); tok.value = TOKEN;
 tok.addEventListener('change', () => {
@@ -1756,20 +2119,31 @@ tok.addEventListener('change', () => {
   fatal = false; if (ws) ws.close(); else connect();
 });
 
-// ---------- 布局：高度 = 实际能显示的区域；键盘弹出时 = 键盘上方的区域 ----------
-// 平时 body 用 inset:0 铺满整屏（主屏幕全屏模式下 visualViewport 高度会比屏幕矮，不能拿它当高度）；
-// 只有键盘弹出、可见区域明显变矮时，才把高度设成可见区域，让输入框和按钮留在键盘上方。
+// 系统键盘占用的区域只影响输入面板，手写板沿用缩小页面的方式。
+let fittedWidth = 0;
 function fit() {
   const vv = window.visualViewport;
-  const full = document.documentElement.clientHeight;
-  const kbUp = kbIsUp = vv && (document.activeElement === ta || document.activeElement === hwText) && vv.height < full - 120;
-  const h = Math.round(kbUp ? vv.height : window.innerHeight);
-  if (document.body.style.height !== h + 'px') { document.body.style.height = h + 'px'; updateLayout(); }
-  window.scrollTo(0, 0);
+  const reduced = vv && vv.height < document.documentElement.clientHeight - 120;
+  const docked = !!(reduced && (kbNative || kbDocked));
+  const dockChanged = docked !== kbDocked;
+  kbDocked = docked;
+  const handwriting = reduced && document.activeElement === hwText;
+  kbIsUp = docked || handwriting;
+  const h = Math.round(handwriting ? vv.height : window.innerHeight);
+  const width = document.body.clientWidth;
+  if (dockChanged || width !== fittedWidth || document.body.style.height !== h + 'px') {
+    fittedWidth = width;
+    document.body.style.height = h + 'px';
+    updateLayout();
+  } else {
+    positionKeyboard();
+  }
+  if (!kbNative && !kbDocked) window.scrollTo(0, 0);
 }
 addEventListener('orientationchange', () => { setTimeout(fit, 120); setTimeout(fit, 500); });   // iOS 转屏后高度更新得晚
-ta.addEventListener('focus', () => setTimeout(fit, 300));
-ta.addEventListener('blur', () => setTimeout(fit, 100));
+for (const [type, delay] of [['focus', 300], ['blur', 100]]) {
+  ta.addEventListener(type, () => setTimeout(fit, delay));
+}
 if (window.visualViewport) { visualViewport.addEventListener('resize', fit); visualViewport.addEventListener('scroll', fit); }
 addEventListener('resize', fit);
 fit();

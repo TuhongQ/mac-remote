@@ -1,27 +1,33 @@
 # PC 遥控（Windows 版）
 
-用 iPhone / iPad 遥控 **Windows 电脑**。和 Mac 版（本仓库根目录）用的是**同一个网页遥控器、同一套通信协议**，手机这边的操作完全一样。
+用 iPhone 或 iPad 在同一局域网内遥控 Windows 电脑。网页遥控器和 Mac 版共用界面。
 
-> 开发进度：**第 1 步**（托盘程序、连接、鼠标、键盘、打字、手势、语音指令）已完成。
-> **第 2 步**：看屏幕——图片（JPEG）和 H.264 视频模式、HTTPS 证书已完成。第 3 步：iPad 触摸屏模式细节、Pencil 手写板、安装包。
+## 下载和使用
 
----
+支持 Windows 10/11 x64。在 [GitHub 发布页](https://github.com/TuhongQ/mac-remote/releases/tag/windows-v0.1.0) 下载安装版，或下载免安装 ZIP 并解压到固定目录。安装版默认安装在当前用户目录，保留免安装版的两个程序。
 
-## 使用
+1. 启动「PC Remote」或双击 `PCRemote.exe`。更新旧版前，从托盘退出旧程序。
+2. 如果 Windows 防火墙询问，在信任的局域网上选「专用网络」并允许连接。
+3. 手机和电脑连接同一个 Wi-Fi，从托盘选「用 iPhone 扫码打开网页遥控器…」，用 Safari 打开。网页地址包含连接凭据，请只提供给获准遥控这台电脑的人。
+4. 可以在 Safari 中选择「分享 → 添加到主屏幕」。开机自启动可在电脑的托盘菜单关掉。
 
-### 运行
+### Apple TV 遥控器
 
-1. 把 `PCRemote.exe` 放到一个固定的位置（比如 `C:\Program Files\PCRemote\` 或「文档」里），双击运行
-2. 第一次运行时：
-   - **Windows 防火墙**会问是否允许它在网络上通信 → 勾选「专用网络」，点「允许」（不允许的话手机连不上）
-   - 默认浏览器会打开一个二维码页面
-   - 自动设为开机启动（托盘菜单里可以关）
-3. 手机和电脑连同一个 Wi-Fi，用手机相机扫二维码，用 Safari 打开
-4. Safari「分享 → 添加到主屏幕」
+从 Windows 开始菜单启动「Apple TV Remote」，也可从 PC 遥控托盘菜单启动，或直接双击同目录里的 `AppleTVRemote.exe`。打开 iPhone 或 iPad 控制中心里的 Apple TV 遥控器，选择这台电脑，用 Windows 托盘里显示的 PIN 配对。
+
+- MENU（返回）是鼠标左键，Home（电视图标）是鼠标右键。
+- 在 Apple TV Remote 托盘打开设置，可配置 iOS 遥控器上的后退与前进媒体按钮，支持单击、双击、滚动和常用按键等操作。
+- 鼠标模式可滑动移动光标，沿触控区右边缘上下滑动滚动，按住再移动可拖拽。iOS 遥控器由 iOS 决定何时显示键盘。
+
+### 网页键盘和触控板
+
+- 单指轻点是左键，双指轻点是右键。iPad 浏览屏幕时，点进 Windows 能识别的输入框会打开网页键盘，点编辑区可调出系统键盘输入中文。
+- 键盘按屏幕大小和转向调整布局。支持整段发送和发送后按回车，收到发送成功回执后收起面板。
+- iPad 的屏幕状态用白字透明叠层显示帧率和「视频」或「图片」。
 
 ### 视频模式（一次性设置）
 
-看屏幕默认用 H.264 视频（更流畅、更省流量），但浏览器只允许 HTTPS 网页解码视频，所以要让手机信任这台电脑的证书：
+视频模式使用 H.264，需 HTTPS 和支持 WebCodecs 的 Safari。视频帧率设置最高可选 120 FPS，实际帧率取决于电脑编码性能、网络和手机或平板。首次使用请信任这台电脑的证书：
 
 1. 手机 Safari 打开遥控页 → 右上角「设置」，在「视频模式」那一段点「下载电脑的证书」→ 允许下载描述文件
 2. iPhone「设置」→「已下载描述文件」→ 安装
@@ -42,6 +48,7 @@ Windows 不允许普通程序操作「以管理员身份运行」的窗口（任
 | 用 iPhone 扫码打开网页遥控器… | 浏览器里显示二维码 |
 | 复制网页遥控链接 | 带 token 的链接复制到剪贴板 |
 | 以管理员身份重新启动 | 能操作任务管理器等管理员窗口（见上） |
+| 打开 Apple TV 遥控器… | 随包安装的 Apple TV Remote |
 | 使用说明… | 打开本说明 |
 | 开机自动启动 | 写在 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | 打开日志 | `%LOCALAPPDATA%\WatchBridge\watchbridge.log` |
@@ -49,7 +56,7 @@ Windows 不允许普通程序操作「以管理员身份运行」的窗口（任
 
 ### 手势和按键
 
-手势、键盘、语音指令和 Mac 版一样，见 [使用说明](../docs/使用说明.md) 第 6、7、15 节。网页连上 Windows 时会把按钮上的说法换成 Windows 的。按键的对应关系：
+网页手势和快捷方式沿用 [Mac 版操作说明](https://github.com/TuhongQ/mac-remote/blob/main/docs/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md) 中的布局。网页连上 Windows 时会把按钮上的说法换成 Windows 的。按键的对应关系：
 
 | 手机上 | Windows 上实际执行 |
 |---|---|
@@ -75,7 +82,7 @@ Windows 不允许普通程序操作「以管理员身份运行」的窗口（任
 - 看屏幕只显示主显示器；视频是 CPU 软件编码（OpenH264），最宽 2560 像素，帧率取决于电脑 CPU；锁屏和 UAC 弹窗（安全桌面）时画面停住，回到桌面后继续
 - 滚动用的是滚轮事件（支持平滑滚动），没有 Mac 触控板那种滚动阶段，回弹手感会略有不同
 - 熄屏时碰一下触摸板会点亮屏幕；但**锁屏界面不能遥控输入密码**（Windows 不允许普通程序操作锁屏），要在电脑上解锁，或用 Windows Hello。（Mac 版锁屏时会提示用手机键盘输入密码）
-- 不支持调亮度、iPhone 自带的「Apple TV 遥控器」
+- 网页遥控暂不支持调亮度
 - iPad 全屏时不能像 Mac 那样临时改成 iPad 的屏幕比例（Windows 建虚拟显示器要装驱动）
 
 ### 文件位置
@@ -111,7 +118,7 @@ Rust 写的，不依赖 .NET 或 VC++ 运行库，编译出来是单个 exe（�
 ```powershell
 # 装 Rust：https://rustup.rs
 cd windows
-cargo build --release
+cargo build --locked --release
 # 结果：target\release\PCRemote.exe
 ```
 
@@ -121,8 +128,10 @@ cargo build --release
 rustup target add x86_64-pc-windows-gnu
 cargo install cargo-zigbuild        # 用 Zig 当链接器（Homebrew 的 MinGW 在新系统上可能装不了）
 # 下载 zig 解压到 ~/.local/zig/（https://ziglang.org/download/），然后：
-./build-exe.sh                      # 结果：../build/PCRemote.exe（约 700 KB，只依赖系统自带的 DLL）
+./build-exe.sh                      # 结果：../build/PCRemote.exe
 ```
+
+运行 `./build-release.sh` 可同时构建安装版、免安装 ZIP 和校验文件，输出位于 `../build/windows-release/<版本>/`。需另装 NSIS（`makensis`）。脚本固定 Apple TV Remote 的公开上游版本，再应用本目录中的补丁。
 
 实现要点：
 

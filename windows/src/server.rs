@@ -289,7 +289,6 @@ fn handle_conn(ctl: TcpStream, secure: bool) {
                 }
                 let _g = INPUT_LOCK.lock();
                 input::type_text(&t);
-                log(format!("{ip} 输入：{t}"));
                 return text(&mut stream, 200, "已输入");
             }
             "/key" => {
@@ -403,21 +402,34 @@ pub fn handle_message(m: &Value, ip: &str, reply: &mut dyn FnMut(Value)) {
             }
         }
         "text" => {
-            let t = s(m, "text").unwrap_or("");
-            if t.is_empty() {
-                return;
+            let text = s(m, "text").unwrap_or("");
+            let id = m.get("id").and_then(Value::as_u64);
+            if id.is_some() {
+                input::clear_blocked();
             }
-            if m.get("paste").and_then(|x| x.as_bool()) == Some(true) {
-                input::paste_text(t);
-            } else {
-                input::type_text(t);
+            if !text.is_empty() {
+                if m.get("paste").and_then(Value::as_bool) == Some(true) {
+                    input::paste_text(text);
+                } else {
+                    input::type_text(text);
+                }
             }
-            log(format!("{ip} 输入：{t}"));
+            let mut failure = id.and_then(|_| input::take_blocked());
+            if failure.is_none() && m.get("enter").and_then(Value::as_bool) == Some(true) {
+                input::press_combo("return");
+                failure = id.and_then(|_| input::take_blocked());
+            }
+            if let Some(id) = id {
+                match failure {
+                    Some(reason) => reply(json!({"t": "textReceipt", "id": id, "ok": false, "text": reason})),
+                    None => reply(json!({"t": "textReceipt", "id": id, "ok": true})),
+                }
+            }
         }
         "cmd" => {
             let t = s(m, "text").unwrap_or("");
             let (ok, ans) = commands::run(t);
-            log(format!("{ip} 指令：{t} -> {ans}"));
+            log(format!("{ip} 执行网页指令，成功：{ok}"));
             if m.get("quiet").and_then(|x| x.as_bool()) != Some(true) || !ok {
                 reply(json!({"t": "reply", "ok": ok, "text": ans}));
             }
@@ -486,7 +498,7 @@ fn websocket(mut stream: Conn, ctl: TcpStream, key: &str, ok: bool, ip: String, 
     let (tx, rx) = mpsc::channel::<Vec<u8>>();
     let ws = Arc::new(Ws { tx: Mutex::new(tx) });
     log(format!("遥控已连接：{ip}"));
-    ws.send(&json!({"t": "hello", "https": secure, "page": page_hash(), "os": "windows"}));
+    ws.send(&json!({"t": "hello", "https": secure, "page": page_hash(), "os": "windows", "textReceipt": true, "keyboardFocus": true}));
 
     // 输入动作在单独的线程里按顺序执行：某个动作卡住（比如打开程序很慢）时，画面和心跳照常
     let (itx, irx) = mpsc::channel::<Value>();
@@ -678,6 +690,7 @@ fn input_loop(irx: mpsc::Receiver<Value>, ws: Arc<Ws>, ip: String) {
             let t0 = Instant::now();
             busy_begin(s(&m, "t").unwrap_or("?"));
             handle_message(&m, &ip, &mut |r| ws.send(&r));
+            check_text_focus(&m, &ws);
             busy_end();
             let used = t0.elapsed();
             if used > Duration::from_secs(2) {
@@ -692,6 +705,33 @@ fn input_loop(irx: mpsc::Receiver<Value>, ws: Arc<Ws>, ip: String) {
                 ws.send(&json!({"t": "reply", "ok": false, "text": why}));
             }
         }
+    }
+}
+
+fn check_text_focus(m: &Value, ws: &Arc<Ws>) {
+    let keyboard_id = m.get("keyboardFocusId").and_then(Value::as_u64);
+    let (id, reply_type) = match keyboard_id {
+        Some(id) => (id, "keyboardFocus"),
+        None if m.get("tap").and_then(Value::as_bool) == Some(true) => {
+            let Some(id) = m.get("id").and_then(Value::as_u64) else { return };
+            (id, "textFocus")
+        }
+        _ => return,
+    };
+    let left = Button::from(s(m, "b")) == Button::Left;
+    let point = match s(m, "t") {
+        Some("click") if left => input::cursor_position(),
+        Some("clickAt") if left => Some(input::point_in_primary(num(m, "x"), num(m, "y"))),
+        Some("pen") if num(m, "p") == 2.0 => Some(input::point_in_primary(num(m, "x"), num(m, "y"))),
+        _ => None,
+    };
+    if let Some((x, y)) = point {
+        let ws = Arc::downgrade(ws);
+        crate::focus::check(x, y, move |editable| {
+            if let Some(ws) = ws.upgrade() {
+                ws.send(&json!({"t": reply_type, "id": id, "editable": editable}));
+            }
+        });
     }
 }
 

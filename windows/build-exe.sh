@@ -9,7 +9,7 @@ if ! command -v zig >/dev/null; then
   [[ -n "$Z" ]] && export PATH="$Z:$PATH"
 fi
 command -v zig >/dev/null || { echo "找不到 zig，请先下载：https://ziglang.org/download/"; exit 1; }
-cargo zigbuild --release --target x86_64-pc-windows-gnu
+cargo zigbuild --locked --release --target x86_64-pc-windows-gnu
 mkdir -p ../build
 cp target/x86_64-pc-windows-gnu/release/PCRemote.exe ../build/PCRemote.exe
 echo "✅ ../build/PCRemote.exe"

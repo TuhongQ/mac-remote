@@ -26,6 +26,7 @@ const ID_LOG: usize = 4;
 const ID_QUIT: usize = 5;
 const ID_HELP: usize = 6;
 const ID_ADMIN: usize = 7;
+const ID_APPLE_TV: usize = 8;
 
 static STATUS: OnceLock<Result<(), String>> = OnceLock::new();
 static TASKBAR_CREATED: OnceLock<u32> = OnceLock::new();
@@ -39,6 +40,11 @@ fn open(target: &str) {
     let op = wide("open");
     let f = wide(target);
     unsafe { ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), f.as_ptr(), std::ptr::null(), std::ptr::null(), SW_SHOWNORMAL) };
+}
+
+fn apple_tv_exe() -> Option<std::path::PathBuf> {
+    let path = std::env::current_exe().ok()?.with_file_name("AppleTVRemote.exe");
+    path.is_file().then_some(path)
 }
 
 /// 二维码：生成一个本地网页（内嵌 SVG 二维码）用默认浏览器打开
@@ -56,6 +62,24 @@ fn show_qr() {
     let path = std::env::temp_dir().join("pc-remote-qr.html");
     if std::fs::write(&path, html).is_ok() {
         open(&path.to_string_lossy());
+    }
+}
+
+static CLIPBOARD_WINDOW: std::sync::atomic::AtomicPtr<std::ffi::c_void> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+pub fn clipboard_window() -> HWND {
+    CLIPBOARD_WINDOW.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn start_clipboard_window() {
+    let class = wide("STATIC");
+    unsafe {
+        let owner = CreateWindowExW(
+            0, class.as_ptr(), std::ptr::null(), 0, 0, 0, 0, 0,
+            HWND_MESSAGE, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null(),
+        );
+        CLIPBOARD_WINDOW.store(owner, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -149,6 +173,9 @@ fn show_menu(hwnd: HWND) {
         AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
         item(MF_STRING, ID_QR, "用 iPhone 扫码打开网页遥控器…");
         item(MF_STRING, ID_COPY, "复制网页遥控链接");
+        if !crate::input::self_elevated() && apple_tv_exe().is_some() {
+            item(MF_STRING, ID_APPLE_TV, "打开 Apple TV 遥控器…");
+        }
         AppendMenuW(m, MF_SEPARATOR, 0, std::ptr::null());
         item(MF_STRING, ID_HELP, "使用说明…");
         item(MF_STRING | if login_enabled() { MF_CHECKED } else { 0 }, ID_LOGIN, "开机自动启动");
@@ -184,7 +211,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 ID_LOGIN => set_login(!login_enabled()),
                 ID_LOG => open(&util::log_path().to_string_lossy()),
                 ID_ADMIN => restart_as_admin(hwnd),
-                ID_HELP => open("https://github.com/TuhongQ/mac-remote/blob/main/windows/README.md"),
+                ID_HELP => open("https://github.com/TuhongQ/mac-remote/blob/windows/windows/README.md"),
+                ID_APPLE_TV if !crate::input::self_elevated() => {
+                    if let Some(path) = apple_tv_exe() {
+                        open(&path.to_string_lossy());
+                    }
+                }
                 ID_QUIT => {
                     remove_icon(hwnd);
                     log("退出");

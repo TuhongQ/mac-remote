@@ -3,6 +3,7 @@
 #![windows_subsystem = "windows"]
 
 mod commands;
+mod focus;
 mod h264;
 mod input;
 mod screen;
@@ -56,6 +57,7 @@ fn main() {
     let token = util::load_or_create_token();
     let _ = server::CONFIG.set(server::Config { port, token });
 
+    tray::start_clipboard_window();
     log(format!("PC 遥控启动（版本 {}）", env!("CARGO_PKG_VERSION")));
     let status = match server::start(port) {
         Ok(()) => {

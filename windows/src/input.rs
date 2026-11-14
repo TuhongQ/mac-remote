@@ -1,18 +1,18 @@
 //! 鼠标、键盘、滚轮、文字输入（SendInput）。
 //! 网页发来的按键名是 Mac 的写法（cmd+c、ctrl+←切桌面……），在这里翻译成 Windows 的等价操作。
 
+use std::cell::Cell;
 use std::mem::size_of;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, HWND, POINT, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HANDLE, HWND, POINT, RECT};
 use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
 use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTOPRIMARY};
 use windows_sys::Win32::System::DataExchange::{
-    CloseClipboard, EmptyClipboard, GetClipboardData, GetClipboardSequenceNumber, OpenClipboard, SetClipboardData,
+    CloseClipboard, EmptyClipboard, GetClipboardData, EnumClipboardFormats, GetClipboardSequenceNumber, OpenClipboard, SetClipboardData,
 };
-use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock, GMEM_MOVEABLE};
 use windows_sys::Win32::System::Shutdown::LockWorkStation;
 use windows_sys::Win32::UI::HiDpi::GetDpiForSystem;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
@@ -59,7 +59,7 @@ impl Button {
     }
 }
 
-static BLOCKED: AtomicBool = AtomicBool::new(false);
+thread_local! { static BLOCKED: Cell<bool> = const { Cell::new(false) }; }
 
 fn send(inputs: &[INPUT]) {
     if inputs.is_empty() {
@@ -68,13 +68,17 @@ fn send(inputs: &[INPUT]) {
     let n = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), size_of::<INPUT>() as i32) };
     // 前台是管理员窗口（UIPI）、锁屏、UAC 安全桌面时，Windows 会拒绝模拟输入
     if n as usize != inputs.len() || foreground_blocks_us() {
-        BLOCKED.store(true, Ordering::Relaxed);
+        BLOCKED.set(true);
     }
 }
 
 /// 上次检查以来有没有输入被拒绝；有的话返回给用户看的原因
+pub fn clear_blocked() {
+    BLOCKED.set(false);
+}
+
 pub fn take_blocked() -> Option<String> {
-    if !BLOCKED.swap(false, Ordering::Relaxed) {
+    if !BLOCKED.replace(false) {
         return None;
     }
     Some(if foreground_blocks_us() {
@@ -246,6 +250,11 @@ pub fn move_by(dx: f64, dy: f64) {
 }
 
 /// 主显示器上的相对位置（0~1）→ 像素
+pub fn cursor_position() -> Option<(i32, i32)> {
+    let mut point = POINT { x: 0, y: 0 };
+    (unsafe { GetCursorPos(&mut point) } != 0).then_some((point.x, point.y))
+}
+
 pub fn point_in_primary(x: f64, y: f64) -> (i32, i32) {
     let r = primary_bounds();
     let w = (r.right - r.left) as f64;
@@ -462,6 +471,7 @@ pub fn type_text(text: &str) {
         }
         if v.len() >= 64 {
             send(&v);
+            if BLOCKED.get() { return; }
             v.clear();
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
@@ -471,68 +481,95 @@ pub fn type_text(text: &str) {
 
 // ---------- 剪贴板粘贴（个别程序收不到 Unicode 按键时用）----------
 
-fn clipboard_get() -> Option<Vec<u16>> {
+pub fn clipboard_set(text: &[u16]) -> bool {
     unsafe {
-        if OpenClipboard(std::ptr::null_mut()) == 0 {
-            return None;
+        let owner = crate::tray::clipboard_window();
+        if owner.is_null() || OpenClipboard(owner) == 0 {
+            return false;
         }
-        let h = GetClipboardData(CF_UNICODETEXT);
-        let mut out = None;
-        if !h.is_null() {
-            let p = GlobalLock(h as _) as *const u16;
-            if !p.is_null() {
-                let mut n = 0;
-                while *p.add(n) != 0 {
-                    n += 1;
-                }
-                out = Some(std::slice::from_raw_parts(p, n + 1).to_vec());
-                GlobalUnlock(h as _);
-            }
-        }
+        let ok = write_open_clipboard(text);
         CloseClipboard();
-        out
+        ok
     }
 }
 
-pub fn clipboard_set(text: &[u16]) -> bool {
-    unsafe {
-        if OpenClipboard(std::ptr::null_mut()) == 0 {
-            return false;
-        }
-        EmptyClipboard();
-        let bytes = text.len() * 2;
-        let h = GlobalAlloc(GMEM_MOVEABLE, bytes);
-        if h.is_null() {
-            CloseClipboard();
-            return false;
-        }
-        let p = GlobalLock(h) as *mut u16;
-        std::ptr::copy_nonoverlapping(text.as_ptr(), p, text.len());
-        GlobalUnlock(h);
-        SetClipboardData(CF_UNICODETEXT, h as HANDLE);
-        CloseClipboard();
-        true
+unsafe fn write_open_clipboard(text: &[u16]) -> bool {
+    let h = GlobalAlloc(GMEM_MOVEABLE, std::mem::size_of_val(text));
+    if h.is_null() {
+        return false;
     }
+    let p = GlobalLock(h) as *mut u16;
+    if p.is_null() {
+        GlobalFree(h);
+        return false;
+    }
+    std::ptr::copy_nonoverlapping(text.as_ptr(), p, text.len());
+    GlobalUnlock(h);
+    if EmptyClipboard() == 0 || SetClipboardData(CF_UNICODETEXT, h as HANDLE).is_null() {
+        GlobalFree(h);
+        return false;
+    }
+    true
+}
+
+unsafe fn read_open_clipboard() -> Option<Vec<u16>> {
+    let h = GetClipboardData(CF_UNICODETEXT);
+    if h.is_null() {
+        return None;
+    }
+    let len = GlobalSize(h) / size_of::<u16>();
+    let ptr = GlobalLock(h) as *const u16;
+    if ptr.is_null() {
+        return None;
+    }
+    let data = std::slice::from_raw_parts(ptr, len);
+    let saved = data.iter().position(|unit| *unit == 0).map(|end| data[..=end].to_vec());
+    GlobalUnlock(h);
+    saved
 }
 
 pub fn paste_text(text: &str) {
-    let saved = clipboard_get();
-    let w: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-    if !clipboard_set(&w) {
+    let w: Vec<u16> = text.replace('\0', "").encode_utf16().chain(std::iter::once(0)).collect();
+    let owner = crate::tray::clipboard_window();
+    let restore = unsafe {
+        if owner.is_null() || OpenClipboard(owner) == 0 {
+            None
+        } else {
+            let mut format = EnumClipboardFormats(0);
+            let empty = format == 0;
+            while matches!(format, 1 | 7 | CF_UNICODETEXT | 16) {
+                format = EnumClipboardFormats(format);
+            }
+            let saved = if format == 0 { read_open_clipboard() } else { None };
+            let usable = empty || saved.is_some();
+            let restore = if usable && write_open_clipboard(&w) {
+                Some((GetClipboardSequenceNumber(), saved))
+            } else {
+                None
+            };
+            CloseClipboard();
+            restore
+        }
+    };
+    let Some((sequence, saved)) = restore else {
         type_text(text);
         return;
-    }
-    let seq = unsafe { GetClipboardSequenceNumber() };
+    };
     press_combo("ctrl+v");
-    // 0.8 秒后恢复原来的剪贴板（这期间用户自己复制了东西就不恢复）
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(800));
-        if unsafe { GetClipboardSequenceNumber() } == seq {
-            if let Some(s) = saved {
-                clipboard_set(&s);
+    // Keep consecutive pastes ordered and leave time for the app to read the text.
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    unsafe {
+        if OpenClipboard(owner) != 0 {
+            if GetClipboardSequenceNumber() == sequence {
+                if let Some(saved) = saved {
+                    write_open_clipboard(&saved);
+                } else {
+                    EmptyClipboard();
+                }
             }
+            CloseClipboard();
         }
-    });
+    }
 }
 
 // ---------- 媒体键 ----------

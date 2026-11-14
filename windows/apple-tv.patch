@@ -1,0 +1,2419 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 22b13fb..fc0a018 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -55,6 +55,7 @@ dependencies = [
+  "mdns-sd",
+  "num-bigint",
+  "num-traits",
++ "plist",
+  "rand",
+  "sha2",
+  "thiserror 2.0.21",
+@@ -70,6 +71,12 @@ version = "1.5.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
+
++[[package]]
++name = "base64"
++version = "0.23.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
++
+ [[package]]
+ name = "base64ct"
+ version = "1.8.3"
+@@ -217,6 +224,12 @@ dependencies = [
+  "zeroize",
+ ]
+
++[[package]]
++name = "deranged"
++version = "0.5.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9e9de72ce2ad1f90dc62fa25f0f430ef85eb4b0d8fa0be4f30373bc40a21d28e"
++
+ [[package]]
+ name = "digest"
+ version = "0.10.7"
+@@ -252,6 +265,12 @@ dependencies = [
+  "zeroize",
+ ]
+
++[[package]]
++name = "equivalent"
++version = "1.0.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
++
+ [[package]]
+ name = "errno"
+ version = "0.3.14"
+@@ -347,6 +366,12 @@ dependencies = [
+  "r-efi",
+ ]
+
++[[package]]
++name = "hashbrown"
++version = "0.17.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
++
+ [[package]]
+ name = "hex"
+ version = "0.4.3"
+@@ -381,6 +406,16 @@ dependencies = [
+  "windows-sys 0.59.0",
+ ]
+
++[[package]]
++name = "indexmap"
++version = "2.14.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
++dependencies = [
++ "equivalent",
++ "hashbrown",
++]
++
+ [[package]]
+ name = "inout"
+ version = "0.1.4"
+@@ -533,6 +568,12 @@ dependencies = [
+  "rand",
+ ]
+
++[[package]]
++name = "num-conv"
++version = "0.2.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
++
+ [[package]]
+ name = "num-integer"
+ version = "0.1.47"
+@@ -579,6 +620,19 @@ dependencies = [
+  "spki",
+ ]
+
++[[package]]
++name = "plist"
++version = "1.10.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "327a4cb2ad49dc48adfdc9da89e22c64d488b508c67a044d71ba729e4521a285"
++dependencies = [
++ "base64",
++ "indexmap",
++ "quick-xml",
++ "serde",
++ "time",
++]
++
+ [[package]]
+ name = "poly1305"
+ version = "0.8.0"
+@@ -590,6 +644,12 @@ dependencies = [
+  "universal-hash",
+ ]
+
++[[package]]
++name = "powerfmt"
++version = "0.2.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4a6394b9e965e73d0a289ee54f589087e2c676aedf60885baf52c76b771e4958"
++
+ [[package]]
+ name = "ppv-lite86"
+ version = "0.2.21"
+@@ -608,6 +668,15 @@ dependencies = [
+  "unicode-ident",
+ ]
+
++[[package]]
++name = "quick-xml"
++version = "0.42.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
++dependencies = [
++ "memchr",
++]
++
+ [[package]]
+ name = "quote"
+ version = "1.0.47"
+@@ -903,6 +972,36 @@ dependencies = [
+  "cfg-if",
+ ]
+
++[[package]]
++name = "time"
++version = "0.3.55"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "cdb87b95ec50ddfa440816d227a17b2ccbdda963a316a727fda0fc4334f7d134"
++dependencies = [
++ "deranged",
++ "num-conv",
++ "powerfmt",
++ "serde_core",
++ "time-core",
++ "time-macros",
++]
++
++[[package]]
++name = "time-core"
++version = "0.1.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
++
++[[package]]
++name = "time-macros"
++version = "0.2.32"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7e689342a48d2ea927c87ea50cabf8594854bf940e9310208848d680d668ed85"
++dependencies = [
++ "num-conv",
++ "time-core",
++]
++
+ [[package]]
+ name = "tokio"
+ version = "1.53.1"
+diff --git a/crates/atv-cli/Cargo.toml b/crates/atv-cli/Cargo.toml
+index f98b7d2..2727fbf 100644
+--- a/crates/atv-cli/Cargo.toml
++++ b/crates/atv-cli/Cargo.toml
+@@ -18,6 +18,7 @@ windows-sys = { version = "0.59", features = [
+     "Win32_System_LibraryLoader",
+     "Win32_System_Threading",
+     "Win32_UI_Shell",
++    "Win32_UI_Input_KeyboardAndMouse",
+     "Win32_UI_WindowsAndMessaging",
+ ] }
+
+diff --git a/crates/atv-cli/src/main.rs b/crates/atv-cli/src/main.rs
+index 1a6605b..327853b 100644
+--- a/crates/atv-cli/src/main.rs
++++ b/crates/atv-cli/src/main.rs
+@@ -38,7 +38,7 @@ fn usage() -> ! {
+            --name <NAME>                  Device name shown in iOS Remote (default: Computer Name on macOS, else \"Mac Remote\")\n\
+            --device-id <MAC>              Hardware / MAC device ID (default: auto-detected hardware MAC)\n\
+            --server-id <UUID>             Unique Server UUID (default: auto-detected hardware UUID)\n\
+-           --pin <PIN>                    4-digit pairing PIN (default: 1111)\n\
++           --pin <PIN>                    4-digit pairing PIN (generated when omitted)\n\
+            --ip <IPV4>                    Local IPv4 to advertise (auto-detected if omitted)\n\
+            --mouse                        Initial mode: Trackpad mouse (default on macOS)\n\
+            --direction, --dpad            Initial mode: Direction keys (D-pad)\n\
+@@ -47,7 +47,7 @@ fn usage() -> ! {
+            --speed <FLOAT>                Initial mouse speed multiplier (default: 0.5)\n\
+            --verbose-events               Enable verbose terminal logging for buttons and events (default: quiet debug)\n\
+            --debug, -d                    Enable debug-level logging for all protocol packets\n\
+-           --ui-port <PORT>               Debug Web UI port (default: 8765)\n\
++           --ui-port <PORT>               Local Debug Web UI port (default: 8767)\n\
+            --no-ui                        Disable Debug Web UI\n\
+            --open                         Automatically open Debug UI in default browser (default on Windows)\n\
+            --no-open                      Do not open Debug UI automatically\n\
+diff --git a/crates/atv-cli/src/windows.rs b/crates/atv-cli/src/windows.rs
+index ebdfbcb..24af1f1 100644
+--- a/crates/atv-cli/src/windows.rs
++++ b/crates/atv-cli/src/windows.rs
+@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+ use std::sync::{Arc, Mutex};
+ use std::time::{Duration, Instant};
+
++use atv_core::delegate::{ButtonAction, ButtonMapping};
+ use atv_core::{AtvDelegate, EventKind, TouchPhase, TrackpadMode};
+ use tracing::{debug, info, warn};
+
+@@ -34,6 +35,10 @@ const KEYEVENTF_KEYUP: u32 = 0x2;
+ const MOUSEEVENTF_MOVE: u32 = 0x1;
+ const MOUSEEVENTF_LEFTDOWN: u32 = 0x2;
+ const MOUSEEVENTF_LEFTUP: u32 = 0x4;
++const MOUSEEVENTF_RIGHTDOWN: u32 = 0x8;
++const MOUSEEVENTF_RIGHTUP: u32 = 0x10;
++const MOUSEEVENTF_WHEEL: u32 = 0x800;
++const MOUSEEVENTF_HWHEEL: u32 = 0x1000;
+
+ const VK_RETURN: u8 = 0x0D;
+ const VK_VOLUME_MUTE: u8 = 0xAD;
+@@ -50,8 +55,6 @@ fn vk_for_button(name: &str) -> Option<u8> {
+         "down" => 0x28,
+         "left" | "rewind" => 0x25,
+         "right" | "fast_forward" => 0x27,
+-        "menu" => 0x1B,                         // Escape
+-        "home" => 0x24,                         // Home
+         "channel_up" | "page_up" => 0x21,       // Page Up
+         "channel_down" | "page_down" => 0x22,   // Page Down
+         "guide" => 0x09,                        // Tab
+@@ -109,6 +112,8 @@ pub struct WinDelegate {
+     verbose_events: AtomicBool,
+     display_asleep: AtomicBool,
+     cursor: Mutex<(f64, f64)>,
++    mapping: Mutex<ButtonMapping>,
++    dragging: AtomicBool,
+     /// (last click time, click count) for play/pause multi-click detection.
+     play_clicks: Arc<Mutex<(Instant, u32)>>,
+     play_gen: Arc<AtomicU32>,
+@@ -125,6 +130,8 @@ impl WinDelegate {
+             verbose_events: AtomicBool::new(verbose),
+             display_asleep: AtomicBool::new(false),
+             cursor: Mutex::new(cursor_pos()),
++            mapping: Mutex::new(load_mapping()),
++            dragging: AtomicBool::new(false),
+             play_clicks: Arc::new(Mutex::new((Instant::now() - Duration::from_secs(10), 0))),
+             play_gen: Arc::new(AtomicU32::new(0)),
+         }
+@@ -163,9 +170,34 @@ impl WinDelegate {
+     }
+
+     fn mouse_click(&self) {
+-        unsafe {
+-            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+-            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
++        self.perform_action(ButtonAction::LeftClick);
++    }
++
++    fn perform_action(&self, action: ButtonAction) {
++        use ButtonAction::*;
++        match action {
++            Disabled => {}
++            LeftClick => mouse_click(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
++            RightClick => mouse_click(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
++            DoubleClick => {
++                mouse_click(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
++                mouse_click(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
++            }
++            ScrollUp => wheel(MOUSEEVENTF_WHEEL, 120),
++            ScrollDown => wheel(MOUSEEVENTF_WHEEL, -120),
++            Enter => press_key(VK_RETURN),
++            Escape => press_key(0x1B),
++            Copy => shortcut(0x11, b'C'),
++            Paste => shortcut(0x11, b'V'),
++            Undo => shortcut(0x11, b'Z'),
++            Spotlight => shortcut(0x5B, b'S'),
++            SwitchApp => shortcut(0x12, 0x09),
++        }
++    }
++
++    fn release_drag(&self) {
++        if self.dragging.swap(false, Ordering::SeqCst) {
++            unsafe { mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) };
+         }
+     }
+
+@@ -203,7 +235,63 @@ impl WinDelegate {
+     }
+ }
+
++fn shortcut(modifier: u8, key: u8) {
++    let flags = if modifier == 0x5B { KEYEVENTF_EXTENDEDKEY } else { 0 };
++    unsafe {
++        keybd_event(modifier, 0, flags, 0);
++        keybd_event(key, 0, 0, 0);
++        keybd_event(key, 0, KEYEVENTF_KEYUP, 0);
++        keybd_event(modifier, 0, flags | KEYEVENTF_KEYUP, 0);
++    }
++}
++
++fn wheel(flags: u32, delta: i32) {
++    if delta != 0 {
++        unsafe { mouse_event(flags, 0, 0, delta as u32, 0) };
++    }
++}
++
++fn mouse_click(down: u32, up: u32) {
++    unsafe {
++        mouse_event(down, 0, 0, 0, 0);
++        mouse_event(up, 0, 0, 0, 0);
++    }
++}
++
++fn mapping_path() -> std::path::PathBuf {
++    atv_core::settings::get_settings_file_path().with_file_name("button-mapping.conf")
++}
++
++fn load_mapping() -> ButtonMapping {
++    let defaults = ButtonMapping::default();
++    let Ok(settings) = std::fs::read_to_string(mapping_path()) else { return defaults };
++    let mut actions = settings.lines().map(ButtonAction::parse);
++    ButtonMapping {
++        backward: actions.next().flatten().unwrap_or(defaults.backward),
++        forward: actions.next().flatten().unwrap_or(defaults.forward),
++    }
++}
++
+ impl AtvDelegate for WinDelegate {
++    fn button_mapping(&self) -> Option<ButtonMapping> {
++        self.mapping.lock().ok().map(|mapping| *mapping)
++    }
++
++    fn save_button_mapping(&self, mapping: ButtonMapping) -> std::io::Result<()> {
++        let mut current = self.mapping.lock()
++            .map_err(|_| std::io::Error::other("button mapping lock unavailable"))?;
++        let path = mapping_path();
++        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
++            std::fs::create_dir_all(parent)?;
++        }
++        let temporary = path.with_extension("tmp");
++        std::fs::write(&temporary, format!("{}\n{}\n", mapping.backward.as_str(), mapping.forward.as_str()))?;
++        std::fs::rename(temporary, path)?;
++        *current = mapping;
++        Ok(())
++    }
++
++
+     fn on_button(&self, name: &str) {
+         self.log(&format!("button: {name}"));
+         if name == "power" || name == "sleep" || name == "wake" {
+@@ -221,6 +309,12 @@ impl AtvDelegate for WinDelegate {
+         match name {
+             "select" if self.mouse_mode.load(Ordering::SeqCst) => self.mouse_click(),
+             "select" => press_key(VK_RETURN),
++            "menu" => self.perform_action(ButtonAction::LeftClick),
++            "home" => self.perform_action(ButtonAction::RightClick),
++            "skip_backward" | "skip_forward" => {
++                let mapping = self.button_mapping().unwrap_or_default();
++                self.perform_action(if name == "skip_backward" { mapping.backward } else { mapping.forward });
++            }
+             "play_pause" => self.handle_play_pause(),
+             "siri" | "toggle_mode" => {
+                 let m = !self.mouse_mode.load(Ordering::SeqCst);
+@@ -246,12 +340,66 @@ impl AtvDelegate for WinDelegate {
+         }
+     }
+
++    fn on_scroll(&self, dx: f64, dy: f64) {
++        wheel(MOUSEEVENTF_HWHEEL, (dx * -3.0).round() as i32);
++        wheel(MOUSEEVENTF_WHEEL, (dy * 3.0).round() as i32);
++    }
++
++    fn on_drag(&self, dx: f64, dy: f64, phase: TouchPhase) {
++        match phase {
++            TouchPhase::Began => {
++                self.release_drag();
++                *self.cursor.lock().unwrap() = cursor_pos();
++                self.dragging.store(true, Ordering::SeqCst);
++                unsafe { mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) };
++            }
++            TouchPhase::Moved if self.dragging.load(Ordering::SeqCst) => self.mouse_move(dx, dy),
++            TouchPhase::Ended => self.release_drag(),
++            _ => {}
++        }
++    }
++
++    fn on_text_insert(&self, text: &str) {
++        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
++            SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_UNICODE,
++            KEYEVENTF_KEYUP,
++        };
++        let mut events = Vec::new();
++        for unit in text.encode_utf16().filter(|unit| *unit != 13) {
++            let (vk, scan, flags) = if unit == 10 { (VK_RETURN as u16, 0, 0) }
++                else if unit == 9 { (9, 0, 0) }
++                else { (0, unit, KEYEVENTF_UNICODE) };
++            for flags in [flags, flags | KEYEVENTF_KEYUP] {
++                events.push(INPUT {
++                    r#type: INPUT_KEYBOARD,
++                    Anonymous: INPUT_0 { ki: KEYBDINPUT {
++                        wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0,
++                    }},
++                });
++            }
++        }
++        if !events.is_empty() {
++            unsafe { SendInput(events.len() as u32, events.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
++        }
++    }
++
++    fn on_text_delete(&self, count: usize) {
++        for _ in 0..count.min(4096) {
++            unsafe {
++                keybd_event(0x08, 0, 0, 0);
++                keybd_event(0x08, 0, KEYEVENTF_KEYUP, 0);
++            }
++        }
++    }
++
+     fn on_trackpad_mode_changed(&self, mode: TrackpadMode) {
++        self.release_drag();
+         self.mouse_mode.store(mode.is_mouse(), Ordering::SeqCst);
+         info!("[Windows] trackpad mode -> {}", mode.as_str());
+     }
+
+     fn on_mode_changed(&self, mouse_mode: bool) {
++        self.release_drag();
+         self.mouse_mode.store(mouse_mode, Ordering::SeqCst);
+     }
+
+@@ -281,6 +429,7 @@ impl AtvDelegate for WinDelegate {
+             EventKind::MouseClick => self.mouse_click(),
+             EventKind::ClientConnected => info!("[Windows] iPhone connected: {detail}"),
+             EventKind::ClientDisconnected => info!("[Windows] iPhone disconnected: {detail}"),
++            EventKind::ControlMessage => {}
+             _ => self.log(&format!("event: {kind:?} {detail}")),
+         }
+     }
+diff --git a/crates/atv-core/Cargo.toml b/crates/atv-core/Cargo.toml
+index fec7768..6b73902 100644
+--- a/crates/atv-core/Cargo.toml
++++ b/crates/atv-core/Cargo.toml
+@@ -6,7 +6,7 @@ license.workspace = true
+ description = "Apple TV simulator: Companion Link protocol server (Bonjour, SRP pairing, encrypted remote control)"
+
+ [dependencies]
+-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "io-util", "sync", "process"] }
++tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "io-util", "fs", "sync", "process"] }
+ mdns-sd = "0.13"
+ ed25519-dalek = "2"
+ x25519-dalek = { version = "2", features = ["static_secrets"] }
+@@ -20,3 +20,4 @@ uuid = { version = "1", features = ["v4"] }
+ hex = "0.4"
+ thiserror = "2"
+ tracing = "0.1"
++plist = "1"
+diff --git a/crates/atv-core/src/dashboard.html b/crates/atv-core/src/dashboard.html
+index 68a152f..daed845 100644
+--- a/crates/atv-core/src/dashboard.html
++++ b/crates/atv-core/src/dashboard.html
+@@ -706,6 +706,16 @@
+       </div>
+     </article>
+
++    <article class="card" id="buttonMapping" hidden>
++      <div class="card-head"><h2>Apple TV 遥控器按键映射</h2></div>
++      <form id="mappingForm" style="display:flex;align-items:end;gap:12px;flex-wrap:wrap">
++        <label style="display:grid;gap:6px">后退跳转 <select id="skipBackward"></select></label>
++        <label style="display:grid;gap:6px">前进跳转 <select id="skipForward"></select></label>
++        <button class="tp-refresh-btn" id="saveMapping" type="submit">保存映射</button>
++        <span id="mappingStatus" role="status"></span>
++      </form>
++    </article>
++
+     <div class="grid">
+       <!-- 左列：最近按钮、虚拟遥控器调试、音量、历史 -->
+       <section class="column">
+@@ -933,7 +943,7 @@
+     function sendAction(button) {
+       fetch('/api/action', {
+         method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
++        headers: { 'Content-Type': 'application/json', 'X-ATV-Settings': '1' },
+         body: JSON.stringify({ button })
+       }).catch(console.error);
+     }
+@@ -1119,7 +1129,7 @@
+         };
+         const res = await fetch('/api/touchpad_settings', {
+           method: 'POST',
+-          headers: { 'Content-Type': 'application/json' },
++          headers: { 'Content-Type': 'application/json', 'X-ATV-Settings': '1' },
+           body: JSON.stringify(payload)
+         });
+         const data = await res.json();
+@@ -1346,6 +1356,52 @@
+       };
+     }
+
++    const mappingActions = [
++      ['left_click', '鼠标左键'], ['right_click', '鼠标右键'], ['double_click', '鼠标双击'],
++      ['scroll_up', '向上滚动'], ['scroll_down', '向下滚动'], ['enter', '回车'],
++      ['escape', 'Esc'], ['copy', '复制（⌘C）'], ['paste', '粘贴（⌘V）'],
++      ['undo', '撤销（⌘Z）'], ['spotlight', '聚焦搜索（⌘空格）'],
++      ['switch_app', '切换应用（⌘Tab）'], ['disabled', '关闭此按键'],
++    ];
++    const backward = $('skipBackward'), forward = $('skipForward');
++    for (const select of [backward, forward]) {
++      for (const [value, label] of mappingActions) select.add(new Option(label, value));
++    }
++    async function loadButtonMapping() {
++      try {
++        const response = await fetch('/api/button_mapping');
++        if (!response.ok) return;
++        const mapping = await response.json();
++        backward.value = mapping.backward;
++        forward.value = mapping.forward;
++        $('buttonMapping').hidden = false;
++      } catch (error) {
++        console.error('Failed to load button mapping:', error);
++      }
++    }
++    $('mappingForm').addEventListener('submit', async event => {
++      event.preventDefault();
++      const button = $('saveMapping');
++      const status = $('mappingStatus');
++      const query = new URLSearchParams({backward: backward.value, forward: forward.value});
++      button.disabled = backward.disabled = forward.disabled = true;
++      status.textContent = '保存中…';
++      try {
++        const response = await fetch('/api/button_mapping?' + query, {
++          method: 'POST', headers: {'X-ATV-Settings': '1'},
++        });
++        status.textContent = response.ok ? '映射已保存' : '保存失败，请重试';
++      } catch {
++        status.textContent = '保存失败，请重试';
++      } finally {
++        button.disabled = backward.disabled = forward.disabled = false;
++      }
++    });
++    for (const select of [backward, forward]) {
++      select.addEventListener('change', () => { $('mappingStatus').textContent = ''; });
++    }
++    loadButtonMapping();
++
+     // 页面初始化：主动向服务端校验拉取全部真实状态并建立长连接
+     refreshStatus(false);
+     initSSE();
+diff --git a/crates/atv-core/src/delegate.rs b/crates/atv-core/src/delegate.rs
+index 4849c2c..436ddd3 100644
+--- a/crates/atv-core/src/delegate.rs
++++ b/crates/atv-core/src/delegate.rs
+@@ -108,6 +108,65 @@ impl TrackpadMode {
+     }
+ }
+
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum ButtonAction {
++    Disabled,
++    LeftClick,
++    RightClick,
++    DoubleClick,
++    ScrollUp,
++    ScrollDown,
++    Enter,
++    Escape,
++    Copy,
++    Paste,
++    Undo,
++    Spotlight,
++    SwitchApp,
++}
++
++impl ButtonAction {
++    pub const ALL: [Self; 13] = [
++        Self::Disabled, Self::LeftClick, Self::RightClick, Self::DoubleClick,
++        Self::ScrollUp, Self::ScrollDown, Self::Enter, Self::Escape, Self::Copy,
++        Self::Paste, Self::Undo, Self::Spotlight, Self::SwitchApp,
++    ];
++
++    pub fn as_str(self) -> &'static str {
++        match self {
++            Self::Disabled => "disabled",
++            Self::LeftClick => "left_click",
++            Self::RightClick => "right_click",
++            Self::DoubleClick => "double_click",
++            Self::ScrollUp => "scroll_up",
++            Self::ScrollDown => "scroll_down",
++            Self::Enter => "enter",
++            Self::Escape => "escape",
++            Self::Copy => "copy",
++            Self::Paste => "paste",
++            Self::Undo => "undo",
++            Self::Spotlight => "spotlight",
++            Self::SwitchApp => "switch_app",
++        }
++    }
++
++    pub fn parse(value: &str) -> Option<Self> {
++        Self::ALL.into_iter().find(|action| action.as_str() == value)
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub struct ButtonMapping {
++    pub backward: ButtonAction,
++    pub forward: ButtonAction,
++}
++
++impl Default for ButtonMapping {
++    fn default() -> Self {
++        Self { backward: ButtonAction::LeftClick, forward: ButtonAction::RightClick }
++    }
++}
++
+ /// Callbacks invoked (synchronously, from tokio tasks) when the phone
+ /// interacts with the simulated Apple TV.
+ ///
+@@ -119,11 +178,36 @@ pub trait AtvDelegate: Send + Sync + 'static {
+     /// surface also arrive here as directional buttons.
+     fn on_button(&self, _name: &str) {}
+
++    fn button_mapping(&self) -> Option<ButtonMapping> {
++        None
++    }
++
++    fn save_button_mapping(&self, _mapping: ButtonMapping) -> std::io::Result<()> {
++        Err(std::io::ErrorKind::Unsupported.into())
++    }
++
+     /// Touch surface activity. `dx`/`dy` are deltas in phone touchpad units
+     /// (the surface is 1000x1000). On `Began` the deltas are zero; on `Ended`
+     /// they are the total displacement from the touch origin.
+     fn on_touch(&self, _dx: f64, _dy: f64, _phase: TouchPhase) {}
+
++    /// Text typed on the phone's keyboard (Remote Text Input). "\n" means
++    /// the Return key.
++    fn on_text_insert(&self, _text: &str) {}
++
++    /// Scroll gesture from the touch surface (touch started on the right
++    /// edge in mouse mode). Deltas are touchpad units, finger direction.
++    fn on_scroll(&self, _dx: f64, _dy: f64) {}
++
++    /// Press-and-hold drag (finger rested ~0.4 s, then moved): `Began` =
++    /// press the mouse button, `Moved` = drag by deltas (touchpad units),
++    /// `Ended` = release. Replaces three-finger drag, which the phone cannot
++    /// report because it only sends one finger.
++    fn on_drag(&self, _dx: f64, _dy: f64, _phase: TouchPhase) {}
++
++    /// The phone deleted `count` characters before the cursor (Backspace).
++    fn on_text_delete(&self, _count: usize) {}
++
+     /// Audio state changed: `volume` in 0.0-1.0 (16 steps), `muted` flag.
+     fn on_audio(&self, _volume: f64, _muted: bool) {}
+
+diff --git a/crates/atv-core/src/gesture.rs b/crates/atv-core/src/gesture.rs
+new file mode 100644
+index 0000000..0180b14
+--- /dev/null
++++ b/crates/atv-core/src/gesture.rs
+@@ -0,0 +1,120 @@
++//! Press-and-hold drag detection for the single-finger touch surface.
++//!
++//! The phone only ever reports one finger (`_tFg` is always 1), so a
++//! three-finger drag cannot be detected. Instead, like "drag lock" on a
++//! laptop touchpad: keep the finger still for `HOLD_NS`, then move it, and
++//! the touch becomes a drag (mouse button held down until the finger lifts).
++//! Moving straight away is plain pointer motion.
++
++/// How long the finger must rest before moving to start a drag.
++pub const HOLD_NS: u64 = 400_000_000;
++/// Movement (touchpad units, surface is 1000x1000) still counted as resting.
++pub const HOLD_SLOP: f64 = 20.0;
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum Kind {
++    /// Not decided yet: the finger has not left the slop area.
++    Pending,
++    /// Ordinary pointer movement.
++    Pointer,
++    /// Mouse button is held down.
++    Drag,
++}
++
++#[derive(Debug, Clone)]
++pub struct HoldDrag {
++    start_ns: Option<u64>,
++    origin: (f64, f64),
++    kind: Kind,
++}
++
++impl Default for HoldDrag {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl HoldDrag {
++    pub fn new() -> Self {
++        Self { start_ns: None, origin: (0.0, 0.0), kind: Kind::Pointer }
++    }
++
++    /// Finger down. `ns` is the phone's `_ns` timestamp, if present.
++    pub fn begin(&mut self, ns: Option<u64>, origin: (f64, f64)) {
++        self.start_ns = ns;
++        self.origin = origin;
++        self.kind = if ns.is_some() { Kind::Pending } else { Kind::Pointer };
++    }
++
++    /// Finger moved. Returns the current kind and whether a drag just started.
++    pub fn update(&mut self, ns: Option<u64>, pos: (f64, f64)) -> (Kind, bool) {
++        if self.kind != Kind::Pending {
++            return (self.kind, false);
++        }
++        let dist = (pos.0 - self.origin.0).abs().max((pos.1 - self.origin.1).abs());
++        if dist < HOLD_SLOP {
++            return (Kind::Pending, false);
++        }
++        let held = match (self.start_ns, ns) {
++            (Some(s), Some(n)) => n.saturating_sub(s) >= HOLD_NS,
++            _ => false,
++        };
++        self.kind = if held { Kind::Drag } else { Kind::Pointer };
++        (self.kind, held)
++    }
++
++    pub fn kind(&self) -> Kind {
++        self.kind
++    }
++
++    /// Finger lifted or cancelled. Returns true if a drag was in progress.
++    pub fn end(&mut self) -> bool {
++        let was_drag = self.kind == Kind::Drag;
++        self.kind = Kind::Pointer;
++        self.start_ns = None;
++        was_drag
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    const MS: u64 = 1_000_000;
++
++    #[test]
++    fn quick_move_is_pointer() {
++        let mut g = HoldDrag::new();
++        g.begin(Some(0), (500.0, 500.0));
++        assert_eq!(g.update(Some(30 * MS), (510.0, 500.0)), (Kind::Pending, false));
++        assert_eq!(g.update(Some(60 * MS), (560.0, 500.0)), (Kind::Pointer, false));
++        assert_eq!(g.update(Some(900 * MS), (700.0, 500.0)), (Kind::Pointer, false));
++        assert!(!g.end());
++    }
++
++    #[test]
++    fn hold_then_move_is_drag() {
++        let mut g = HoldDrag::new();
++        g.begin(Some(0), (500.0, 500.0));
++        assert_eq!(g.update(Some(200 * MS), (505.0, 503.0)), (Kind::Pending, false));
++        assert_eq!(g.update(Some(450 * MS), (540.0, 500.0)), (Kind::Drag, true));
++        assert_eq!(g.update(Some(470 * MS), (580.0, 500.0)), (Kind::Drag, false));
++        assert!(g.end());
++        assert_eq!(g.kind(), Kind::Pointer);
++    }
++
++    #[test]
++    fn missing_timestamp_never_drags() {
++        let mut g = HoldDrag::new();
++        g.begin(None, (500.0, 500.0));
++        assert_eq!(g.update(None, (600.0, 500.0)), (Kind::Pointer, false));
++    }
++
++    #[test]
++    fn hold_without_move_is_not_drag() {
++        let mut g = HoldDrag::new();
++        g.begin(Some(0), (500.0, 500.0));
++        assert_eq!(g.update(Some(800 * MS), (502.0, 500.0)), (Kind::Pending, false));
++        assert!(!g.end());
++    }
++}
+diff --git a/crates/atv-core/src/identity.rs b/crates/atv-core/src/identity.rs
+index 2701526..9ce2d75 100644
+--- a/crates/atv-core/src/identity.rs
++++ b/crates/atv-core/src/identity.rs
+@@ -7,6 +7,7 @@
+ use std::fs;
+ use std::path::PathBuf;
+
++use rand::{rngs::OsRng, RngCore};
+ use sha2::{Digest, Sha256};
+ use uuid::Uuid;
+
+@@ -54,7 +55,7 @@ impl DeviceIdentity {
+
+     /// Resolve identity from `AtvConfig`, filling any missing or empty fields
+     /// with the auto-detected per-device identity.
+-    pub fn from_config(config: &AtvConfig) -> Self {
++    pub fn from_config(config: &AtvConfig) -> std::io::Result<Self> {
+         let detected = Self::detect();
+
+         let name = if config.name.trim().is_empty() {
+@@ -79,18 +80,43 @@ impl DeviceIdentity {
+
+         let unique_id = server_identifier.replace('-', "").to_uppercase();
+
+-        let private_key = config
+-            .private_key
+-            .unwrap_or_else(|| derive_private_key(&server_identifier));
++        let private_key = match config.private_key {
++            Some(key) => key,
++            None => load_signing_seed(&server_identifier)?,
++        };
+
+-        Self {
++        Ok(Self {
+             name,
+             device_id,
+             mac_bytes,
+             server_identifier,
+             unique_id,
+             private_key,
++        })
++    }
++}
++
++fn load_signing_seed(server: &str) -> std::io::Result<[u8; 32]> {
++    use std::io::{ErrorKind, Write};
++    let dir = crate::settings::get_settings_file_path().with_file_name("device-keys");
++    let path = dir.join(hex::encode(Sha256::digest(server.as_bytes())));
++    match fs::read(&path) {
++        Ok(data) => data.try_into().map_err(|_| ErrorKind::InvalidData.into()),
++        Err(err) if err.kind() == ErrorKind::NotFound => {
++            fs::create_dir_all(dir)?;
++            let mut seed = [0; 32];
++            OsRng.fill_bytes(&mut seed);
++            let mut options = fs::OpenOptions::new();
++            options.write(true).create_new(true);
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::OpenOptionsExt;
++                options.mode(0o600);
++            }
++            options.open(path)?.write_all(&seed)?;
++            Ok(seed)
+         }
++        Err(err) => Err(err),
+     }
+ }
+
+diff --git a/crates/atv-core/src/lib.rs b/crates/atv-core/src/lib.rs
+index c77359a..6a5d4d6 100644
+--- a/crates/atv-core/src/lib.rs
++++ b/crates/atv-core/src/lib.rs
+@@ -13,6 +13,7 @@
+ pub mod crypto;
+ pub mod delegate;
+ pub mod error;
++pub mod gesture;
+ pub mod identity;
+ pub mod inspector;
+ pub mod opack;
+@@ -21,6 +22,8 @@ pub mod server;
+ pub mod session;
+ pub mod settings;
+ pub mod srp;
++pub mod text_input;
++pub mod text_tracker;
+ pub mod tlv;
+
+ pub use delegate::{AtvDelegate, EventKind, TouchPhase, TrackpadMode};
+diff --git a/crates/atv-core/src/server.rs b/crates/atv-core/src/server.rs
+index d8319c4..28b1f2d 100644
+--- a/crates/atv-core/src/server.rs
++++ b/crates/atv-core/src/server.rs
+@@ -20,7 +20,7 @@ use tracing::{debug, info, warn};
+
+ use sha2::{Digest, Sha256};
+
+-use crate::delegate::{AtvDelegate, EventKind, TrackpadMode};
++use crate::delegate::{AtvDelegate, ButtonAction, ButtonMapping, EventKind, TrackpadMode};
+ use crate::error::{Error, Result};
+ use crate::identity::{self, DeviceIdentity};
+ use crate::inspector::InspectorHub;
+@@ -90,15 +90,15 @@ impl Default for AtvConfig {
+             });
+         Self {
+             name: identity.name,
+-            pin: 1111,
++            pin: rand::random::<u32>() % 10_000,
+             ip: None,
+             mouse_mode: initial_mode.is_mouse(),
+             trackpad_mode: initial_mode,
+-            ui_port: Some(8765),
++            ui_port: Some(8767),
+             mouse_speed: settings.mouse_speed,
+             device_id: Some(identity.device_id),
+             server_identifier: Some(identity.server_identifier),
+-            private_key: Some(identity.private_key),
++            private_key: None,
+         }
+     }
+ }
+@@ -159,7 +159,7 @@ impl AtvServer {
+         if config.pin > 9999 {
+             return Err(Error::Protocol("pin must be between 0000 and 9999".into()));
+         }
+-        let identity = DeviceIdentity::from_config(&config);
++        let identity = DeviceIdentity::from_config(&config)?;
+         let mut config = config;
+         config.name = identity.name.clone();
+         config.device_id = Some(identity.device_id.clone());
+@@ -202,9 +202,9 @@ impl AtvServer {
+
+         let mut actual_ui_port = None;
+         if let Some(ui_p) = config.ui_port {
+-            match TcpListener::bind((Ipv4Addr::UNSPECIFIED, ui_p)).await {
++            match TcpListener::bind((Ipv4Addr::LOCALHOST, ui_p)).await {
+                 Ok(ui_listener) => {
+-                    actual_ui_port = Some(ui_p);
++                    actual_ui_port = Some(ui_listener.local_addr()?.port());
+                     tasks.push(tokio::spawn(ui_loop(
+                         ui_listener,
+                         inspector.clone(),
+@@ -357,7 +357,6 @@ impl AtvServer {
+         info!("Name      : \"{}\"", identity.name);
+         info!("Device ID : {}", identity.device_id);
+         info!("Server ID : {}", identity.server_identifier);
+-        info!("PIN       : {:04}", config.pin);
+         info!("MRP       : {ip}:{mrp_port}");
+         info!("Companion : {ip}:{companion_port}");
+         info!("AirPlay   : {ip}:{airplay_port}");
+@@ -768,6 +767,29 @@ async fn handle_ui_client(
+     let method = parts[0];
+     let raw_path = parts[1];
+     let path = raw_path.split('?').next().unwrap_or(raw_path);
++    let local = stream.local_addr().ok().map(|addr| format!("127.0.0.1:{}", addr.port()));
++    let mut host = None;
++    let mut origin = None;
++    let mut local_action = false;
++    for line in req.lines().skip(1).take_while(|line| !line.is_empty()) {
++        if let Some((key, value)) = line.split_once(':') {
++            if key.eq_ignore_ascii_case("host") {
++                host = Some(value.trim());
++            } else if key.eq_ignore_ascii_case("origin") {
++                origin = Some(value.trim());
++            } else if key.eq_ignore_ascii_case("x-atv-settings") {
++                local_action = value.trim() == "1";
++            }
++        }
++    }
++    let expected_origin = local.as_ref().map(|addr| format!("http://{addr}"));
++    if local.is_none() || host != local.as_deref()
++        || origin.is_some_and(|value| Some(value) != expected_origin.as_deref())
++        || (method == "POST" && !local_action)
++    {
++        let _ = stream.write_all(b"HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n").await;
++        return;
++    }
+
+     match (method, path) {
+         ("GET", "/") | ("GET", "/index.html") => {
+@@ -793,7 +815,6 @@ async fn handle_ui_client(
+                           Content-Type: text/event-stream\r\n\
+                           Cache-Control: no-cache\r\n\
+                           Connection: keep-alive\r\n\
+-                          Access-Control-Allow-Origin: *\r\n\
+                           \r\n";
+             if stream.write_all(header.as_bytes()).await.is_err() {
+                 return;
+@@ -856,7 +877,7 @@ async fn handle_ui_client(
+                         );
+                         crate::settings::UserSettings::update_trackpad_mode(new_mode.as_str());
+                         let resp = format!(
+-                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
++                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
+                             new_mode.as_str(),
+                             new_mode.is_mouse()
+                         );
+@@ -865,7 +886,7 @@ async fn handle_ui_client(
+                     }
+                     delegate.on_button(&button);
+                     inspector.emit("button", &format!("{{\"name\":\"{button}\"}}"));
+-                    let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{\"status\":\"ok\"}";
++                    let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"status\":\"ok\"}";
+                     let _ = stream.write_all(resp.as_bytes()).await;
+                     return;
+                 }
+@@ -895,7 +916,7 @@ async fn handle_ui_client(
+                 );
+                 crate::settings::UserSettings::update_trackpad_mode(new_mode.as_str());
+                 let resp = format!(
+-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
++                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
+                     new_mode.as_str(),
+                     new_mode.is_mouse()
+                 );
+@@ -917,13 +938,37 @@ async fn handle_ui_client(
+             );
+             crate::settings::UserSettings::update_trackpad_mode(new_mode.as_str());
+             let resp = format!(
+-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
++                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{}}}",
+                 new_mode.as_str(),
+                 new_mode.is_mouse()
+             );
+             let _ = stream.write_all(resp.as_bytes()).await;
+             return;
+         }
++        ("GET" | "POST", "/api/button_mapping") => {
++            let (status, body) = if let Some(current) = delegate.button_mapping() {
++                if method == "GET" {
++                    ("200 OK", button_mapping_json(current))
++                } else if let Some(mapping) = parse_button_mapping_query(raw_path) {
++                    match delegate.save_button_mapping(mapping) {
++                        Ok(()) => ("200 OK", button_mapping_json(mapping)),
++                        Err(error) => {
++                            warn!("Unable to save remote button mapping: {error}");
++                            ("500 Internal Server Error", "{}".into())
++                        }
++                    }
++                } else {
++                    ("400 Bad Request", "{}".into())
++                }
++            } else {
++                ("404 Not Found", "{}".into())
++            };
++            let resp = format!(
++                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
++                body.len()
++            );
++            let _ = stream.write_all(resp.as_bytes()).await;
++        }
+         ("POST", "/api/touchpad_settings") | ("POST", "/api/mouse_settings") | ("POST", "/api/speed") => {
+             if let Some(pos) = req.find("\r\n\r\n") {
+                 let body = &req[pos + 4..];
+@@ -979,7 +1024,7 @@ async fn handle_ui_client(
+                     ),
+                 );
+                 let resp = format!(
+-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{},\"speed\":{:.2},\"accel\":{},\"verbose_events\":{}}}",
++                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"mode\":\"{}\",\"mouse_mode\":{},\"speed\":{:.2},\"accel\":{},\"verbose_events\":{}}}",
+                     cur_mode.as_str(), cur_mode.is_mouse(), new_speed, new_accel, new_verbose
+                 );
+                 let _ = stream.write_all(resp.as_bytes()).await;
+@@ -1006,7 +1051,7 @@ async fn handle_ui_client(
+                 None => "null".to_string(),
+             };
+             let resp = format!(
+-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"server_online\":true,\"mode\":\"{}\",\"mouse_mode\":{},\"device_name\":\"{}\",\"mouse_speed\":{:.2},\"mouse_accel\":{},\"verbose_events\":{},\"screen_size\":{},\"client_connected\":{},\"client_peer\":{},\"session_ready\":{},\"audio\":{}}}",
++                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{\"status\":\"ok\",\"server_online\":true,\"mode\":\"{}\",\"mouse_mode\":{},\"device_name\":\"{}\",\"mouse_speed\":{:.2},\"mouse_accel\":{},\"verbose_events\":{},\"screen_size\":{},\"client_connected\":{},\"client_peer\":{},\"session_ready\":{},\"audio\":{}}}",
+                 cur_mode.as_str(), is_mouse, device_name, speed, accel, verbose_events, screen_json, client_conn, peer_json, session_ready, audio_json
+             );
+             let _ = stream.write_all(resp.as_bytes()).await;
+@@ -1023,6 +1068,26 @@ async fn handle_ui_client(
+     }
+ }
+
++fn button_mapping_json(mapping: ButtonMapping) -> String {
++    format!(r#"{{"backward":"{}","forward":"{}"}}"#, mapping.backward.as_str(), mapping.forward.as_str())
++}
++
++fn parse_button_mapping_query(raw_path: &str) -> Option<ButtonMapping> {
++    let (_, query) = raw_path.split_once('?')?;
++    let mut backward = None;
++    let mut forward = None;
++    for pair in query.split('&') {
++        let (key, value) = pair.split_once('=')?;
++        let action = ButtonAction::parse(value)?;
++        match key {
++            "backward" if backward.is_none() => backward = Some(action),
++            "forward" if forward.is_none() => forward = Some(action),
++            _ => return None,
++        }
++    }
++    Some(ButtonMapping { backward: backward?, forward: forward? })
++}
++
+ fn extract_string_from_json(json: &str, key: &str) -> Option<String> {
+     let quoted = format!("\"{key}\"");
+     let idx = json.find(&quoted)?;
+diff --git a/crates/atv-core/src/session.rs b/crates/atv-core/src/session.rs
+index d136ec7..098c3a5 100644
+--- a/crates/atv-core/src/session.rs
++++ b/crates/atv-core/src/session.rs
+@@ -4,7 +4,9 @@
+ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+ use std::sync::Arc;
+
+-use ed25519_dalek::{Signer, SigningKey};
++use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
++use rand::{rngs::OsRng, RngCore};
++use sha2::{Digest, Sha256};
+ use tokio::io::AsyncWriteExt;
+ use tokio::net::tcp::OwnedWriteHalf;
+ use tokio::sync::Mutex;
+@@ -14,11 +16,14 @@ use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
+ use crate::crypto::{hkdf_expand, CompanionCipher};
+ use crate::delegate::{AtvDelegate, EventKind, TouchPhase, TrackpadMode};
+ use crate::error::{Error, Result};
++use crate::gesture::{HoldDrag, Kind as GestureKind};
+ use crate::identity::DeviceIdentity;
+ use crate::inspector::InspectorHub;
+ use crate::opack::{self, Value};
+ use crate::registry::{ActiveConnectionTracker, DeviceRegistry};
+ use crate::srp::SrpServer;
++use crate::text_input;
++use crate::text_tracker::TextTracker;
+ use crate::tlv::{self, tags};
+ use crate::FrameType;
+
+@@ -26,9 +31,15 @@ pub const SERVER_IDENTIFIER: &str = "5D797FD3-3538-427E-A47B-A32FC6CF3A6A";
+ pub const SERVER_PRIVATE_KEY: [u8; 32] = [0xaa; 32];
+ pub const DEVICE_MODEL: &str = "AppleTV14,1";
+ pub const MEDIA_CONTROL_VOLUME: u64 = 0x0100;
++const MEDIA_CONTROL_SKIP_FORWARD: u64 = 0x0200;
++const MEDIA_CONTROL_SKIP_BACKWARD: u64 = 0x0400;
++const MEDIA_CONTROL_FLAGS: u64 =
++    MEDIA_CONTROL_VOLUME | MEDIA_CONTROL_SKIP_FORWARD | MEDIA_CONTROL_SKIP_BACKWARD;
+
+ const SWIPE_MIN_DISTANCE: f64 = 150.0; // touchpad units; the surface is 1000x1000
+-const TAP_MAX_DISTANCE: f64 = 60.0; // below this a touch sequence counts as a tap
++const TAP_MAX_DISTANCE: f64 = 60.0;
++/// Touches starting right of this x (of 1000) scroll in mouse mode.
++const SCROLL_EDGE_X: f64 = 820.0; // below this a touch sequence counts as a tap
+
+ /// Fixed `altIRK` value from `fake_atv._pair_setup_m5`.
+ const ALT_IRK: [u8; 16] = [
+@@ -65,6 +76,21 @@ fn hid_command_name(command: u64) -> String {
+     }
+ }
+
++fn media_skip_button(command: Option<u64>, content: &Value) -> Option<&'static str> {
++    match command {
++        // A skip carries a signed time interval in seconds.
++        Some(7) => match content.get("_skpS").and_then(Value::as_float) {
++            Some(seconds) if seconds.is_finite() && seconds > 0.0 => Some("skip_forward"),
++            Some(seconds) if seconds.is_finite() && seconds < 0.0 => Some("skip_backward"),
++            _ => None,
++        },
++        // Fire once when the corresponding seek begins.
++        Some(8) => Some("skip_forward"),
++        Some(10) => Some("skip_backward"),
++        _ => None,
++    }
++}
++
+ /// One Companion connection's state machine.
+ pub struct CompanionSession {
+     writer: SharedWriter,
+@@ -80,6 +106,8 @@ pub struct CompanionSession {
+     auth_pub: [u8; 32],
+     verify_private: StaticSecret,
+     verify_pub: X25519PublicKey,
++    pending_verify: Option<([u8; 32], [u8; 32])>,
++    setup_verified: bool,
+     cipher: Option<CompanionCipher>,
+     current_identifier: Option<String>,
+     srp: SrpServer,
+@@ -99,6 +127,22 @@ pub struct CompanionSession {
+     peer_ip: String,
+     device_id: Option<String>,
+     timeout_deadline: Arc<Mutex<Option<tokio::time::Instant>>>,
++    /// Remote Text Input session id announced to the phone.
++    ti_uuid: [u8; 16],
++    /// Mirrors the phone's keyboard field to turn restatements into keystrokes.
++    ti: TextTracker,
++    /// Current touch sequence is a scroll (started on the right edge).
++    touch_scroll: bool,
++    /// Press-and-hold drag detection (stands in for three-finger drag).
++    touch_drag: HoldDrag,
++}
++
++/// Remote Text Input is on unless `ATV_TEXT_INPUT=0/off/false`.
++fn text_input_enabled() -> bool {
++    !matches!(
++        std::env::var("ATV_TEXT_INPUT").unwrap_or_default().to_ascii_lowercase().as_str(),
++        "0" | "off" | "false" | "no"
++    )
+ }
+
+ impl CompanionSession {
+@@ -118,7 +162,7 @@ impl CompanionSession {
+     ) -> Self {
+         let signing_key = SigningKey::from_bytes(&identity.private_key);
+         let auth_pub = signing_key.verifying_key().to_bytes();
+-        let verify_private = StaticSecret::from(identity.private_key);
++        let verify_private = StaticSecret::random_from_rng(OsRng);
+         let verify_pub = X25519PublicKey::from(&verify_private);
+         let remote_session_id: u32 = rand::random();
+         let (initial_volume, initial_muted) = delegate.get_audio_state().unwrap_or((0.5, false));
+@@ -136,6 +180,8 @@ impl CompanionSession {
+             auth_pub,
+             verify_private,
+             verify_pub,
++            pending_verify: None,
++            setup_verified: false,
+             cipher: None,
+             current_identifier: None,
+             srp: SrpServer::new(pin, &identity.private_key),
+@@ -155,6 +201,10 @@ impl CompanionSession {
+             peer_ip,
+             device_id: None,
+             timeout_deadline: Arc::new(Mutex::new(None)),
++            ti_uuid: rand::random(),
++            ti: TextTracker::new(),
++            touch_scroll: false,
++            touch_drag: HoldDrag::new(),
+         }
+     }
+
+@@ -187,7 +237,7 @@ impl CompanionSession {
+
+     async fn send_opack(&self, frame_type: FrameType, data: &Value) -> Result<()> {
+         let payload = opack::pack(data);
+-        debug!(">> {:?} {}", frame_type, data);
++        debug!("sending {frame_type:?} frame");
+         self.send_frame(frame_type, &payload).await
+     }
+
+@@ -201,7 +251,7 @@ impl CompanionSession {
+         header.push(FrameType::EOpack as u8);
+         header.extend_from_slice(&((plain.len() + 16) as u32).to_be_bytes()[1..]);
+         let encrypted = cipher.encrypt(&plain, Some(&header), None)?;
+-        debug!(">> E_OPACK {}", data);
++        debug!("sending encrypted control frame");
+         let mut out = header;
+         out.extend_from_slice(&encrypted);
+         self.write_raw(&out).await
+@@ -244,14 +294,14 @@ impl CompanionSession {
+         self.send_encrypted_opack(&Value::Dict(event)).await
+     }
+
+-    /// Advertise volume support using both modern and legacy wire formats.
++    /// Advertise media control support using both modern and legacy wire formats.
+     async fn send_media_capabilities(&mut self, xid: Option<u64>) -> Result<()> {
+         self.send_event(
+             "MediaControlStatus",
+             xid,
+             Some(Value::dict(vec![Value::kv(
+                 "MediaControlFlags",
+-                Value::Int(MEDIA_CONTROL_VOLUME),
++                Value::Int(MEDIA_CONTROL_FLAGS),
+             )])),
+         )
+         .await?;
+@@ -260,7 +310,7 @@ impl CompanionSession {
+             xid,
+             Some(Value::dict(vec![Value::kv(
+                 "_mcF",
+-                Value::Int(MEDIA_CONTROL_VOLUME),
++                Value::Int(MEDIA_CONTROL_FLAGS),
+             )])),
+         )
+         .await?;
+@@ -268,7 +318,7 @@ impl CompanionSession {
+         Ok(())
+     }
+
+-    /// Re-publish the volume capability flag after a state change so iOS
++    /// Re-publish media capabilities after a volume change so iOS
+     /// refreshes its volume HUD (it issues GetVolume in response).
+     async fn push_media_state(&mut self, xid: Option<u64>) -> Result<()> {
+         self.send_event(
+@@ -276,7 +326,7 @@ impl CompanionSession {
+             xid,
+             Some(Value::dict(vec![Value::kv(
+                 "MediaControlFlags",
+-                Value::Int(MEDIA_CONTROL_VOLUME),
++                Value::Int(MEDIA_CONTROL_FLAGS),
+             )])),
+         )
+         .await?;
+@@ -285,7 +335,7 @@ impl CompanionSession {
+             xid,
+             Some(Value::dict(vec![Value::kv(
+                 "_mcF",
+-                Value::Int(MEDIA_CONTROL_VOLUME),
++                Value::Int(MEDIA_CONTROL_FLAGS),
+             )])),
+         )
+         .await
+@@ -325,7 +375,7 @@ impl CompanionSession {
+
+         let (data, remaining) = opack::unpack(&payload)?;
+         if !remaining.is_empty() {
+-            warn!("trailing OPACK bytes: {:02x?}", remaining);
++            warn!("trailing OPACK bytes: {}", remaining.len());
+         }
+
+         match frame_type {
+@@ -333,11 +383,11 @@ impl CompanionSession {
+                 self.handle_auth(frame_type, &data).await
+             }
+             FrameType::EOpack => {
+-                debug!("<< E_OPACK {}", data);
++                debug!("received encrypted control frame");
+                 self.handle_control(&data).await
+             }
+             other => {
+-                debug!("{:?} {}", other, data);
++                debug!("received {other:?} frame");
+                 Ok(())
+             }
+         }
+@@ -360,7 +410,7 @@ impl CompanionSession {
+             (FrameType::PsNext, 3) => self.pair_setup_m3(&pairing_data).await,
+             (FrameType::PsNext, 5) => self.pair_setup_m5(&pairing_data).await,
+             (FrameType::PvStart, 1) => self.pair_verify_m1(&pairing_data).await,
+-            (FrameType::PvNext, 3) => self.pair_verify_m3().await,
++            (FrameType::PvNext, 3) => self.pair_verify_m3(&pairing_data).await,
+             _ => {
+                 warn!("unsupported auth step: frame={:?} seq={}", frame_type, seq);
+                 Ok(())
+@@ -369,17 +419,17 @@ impl CompanionSession {
+     }
+
+     async fn pair_setup_m1(&mut self) -> Result<()> {
++        self.setup_verified = false;
++        let mut salt = [0; 32];
++        OsRng.fill_bytes(&mut salt);
++        self.srp = SrpServer::new(self.pin, &salt);
+         let tlv_data = tlv::write(&[
+             (tags::SEQ_NO, &[0x02]),
+             (tags::SALT, self.srp.salt()),
+             (tags::PUBLIC_KEY, &self.srp.public_key()),
+             (27, &[0x01]),
+         ]);
+-        info!("pairing PIN is {:04}", self.pin);
+-        self.inspector.emit(
+-            "auth",
+-            &format!("{{\"step\":\"pair_setup_m1\",\"pin\":{:04}}}", self.pin),
+-        );
++        self.inspector.emit("auth", r#"{"step":"pair_setup_m1"}"#);
+         self.send_opack(
+             FrameType::PsNext,
+             &Value::dict(vec![
+@@ -397,6 +447,7 @@ impl CompanionSession {
+         let public_key = pairing_data
+             .get(&tags::PUBLIC_KEY)
+             .ok_or_else(|| Error::Protocol("missing client public key".into()))?;
++        self.setup_verified = false;
+         self.srp.process(public_key)?;
+         let proof_ok = pairing_data
+             .get(&tags::PROOF)
+@@ -406,6 +457,7 @@ impl CompanionSession {
+             "auth",
+             &format!("{{\"step\":\"pair_setup_m3\",\"verified\":{proof_ok}}}"),
+         );
++        self.setup_verified = proof_ok;
+         let tlv_data = if proof_ok {
+             tlv::write(&[
+                 (tags::SEQ_NO, &[0x04]),
+@@ -425,6 +477,9 @@ impl CompanionSession {
+         &mut self,
+         pairing_data: &std::collections::BTreeMap<u8, Vec<u8>>,
+     ) -> Result<()> {
++        if !std::mem::take(&mut self.setup_verified) {
++            return Err(Error::Protocol("pair setup proof is required".into()));
++        }
+         let shared = self.srp.session_key()?.to_vec();
+         let session_key = hkdf_expand("Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", &shared);
+         let mut chacha = CompanionCipher::new(&session_key, &session_key, 8)?;
+@@ -433,7 +488,18 @@ impl CompanionSession {
+             .ok_or_else(|| Error::Protocol("missing encrypted data".into()))?;
+         let decrypted = chacha.decrypt(encrypted, None, Some(b"PS-Msg05"))?;
+         let client_tlv = tlv::read(&decrypted);
+-        debug!("paired client: {} TLV entries", client_tlv.len());
++        let client_id = required_tlv(&client_tlv, tags::IDENTIFIER)?;
++        let client_key: [u8; 32] = required_tlv(&client_tlv, tags::PUBLIC_KEY)?
++            .try_into().map_err(|_| Error::Protocol("invalid client signing key".into()))?;
++        let controller_x = hkdf_expand(
++            "Pair-Setup-Controller-Sign-Salt",
++            "Pair-Setup-Controller-Sign-Info",
++            &shared,
++        );
++        authenticate_client(&client_tlv, &client_key, &[&controller_x, client_id, &client_key])?;
++        let path = pairing_path(&self.unique_id, client_id);
++        tokio::fs::create_dir_all(path.parent().unwrap()).await?;
++        tokio::fs::write(path, client_key).await?;
+
+         let accessory_x = hkdf_expand(
+             "Pair-Setup-Accessory-Sign-Salt",
+@@ -491,6 +557,10 @@ impl CompanionSession {
+         &mut self,
+         pairing_data: &std::collections::BTreeMap<u8, Vec<u8>>,
+     ) -> Result<()> {
++        self.cipher = None;
++        self.pending_verify = None;
++        self.verify_private = StaticSecret::random_from_rng(OsRng);
++        self.verify_pub = X25519PublicKey::from(&self.verify_private);
+         let server_pub = self.verify_pub.to_bytes();
+         let client_pub_bytes = pairing_data
+             .get(&tags::PUBLIC_KEY)
+@@ -502,6 +572,9 @@ impl CompanionSession {
+         let shared = self
+             .verify_private
+             .diffie_hellman(&X25519PublicKey::from(client_pub));
++        if !shared.was_contributory() {
++            return Err(Error::Protocol("invalid client ephemeral key".into()));
++        }
+         let session_key = hkdf_expand(
+             "Pair-Verify-Encrypt-Salt",
+             "Pair-Verify-Encrypt-Info",
+@@ -524,11 +597,7 @@ impl CompanionSession {
+             Some(b"PV-Msg02"),
+         )?;
+
+-        self.cipher = Some(CompanionCipher::new(
+-            &hkdf_expand("", "ServerEncrypt-main", shared.as_bytes()),
+-            &hkdf_expand("", "ClientEncrypt-main", shared.as_bytes()),
+-            12,
+-        )?);
++        self.pending_verify = Some((client_pub, *shared.as_bytes()));
+
+         self.inspector.emit("auth", "{\"step\":\"pair_verify_m1\"}");
+
+@@ -546,7 +615,24 @@ impl CompanionSession {
+         .await
+     }
+
+-    async fn pair_verify_m3(&mut self) -> Result<()> {
++    async fn pair_verify_m3(&mut self, pairing_data: &Tlv) -> Result<()> {
++        let (client_pub, shared) = self.pending_verify.take()
++            .ok_or_else(|| Error::Protocol("pair verify handshake is required".into()))?;
++        let session_key = hkdf_expand(
++            "Pair-Verify-Encrypt-Salt", "Pair-Verify-Encrypt-Info", &shared,
++        );
++        let mut cipher = CompanionCipher::new(&session_key, &session_key, 8)?;
++        let encrypted = required_tlv(pairing_data, tags::ENCRYPTED_DATA)?;
++        let client = tlv::read(&cipher.decrypt(encrypted, None, Some(b"PV-Msg03"))?);
++        let client_id = required_tlv(&client, tags::IDENTIFIER)?;
++        let key: [u8; 32] = tokio::fs::read(pairing_path(&self.unique_id, client_id)).await?
++            .try_into().map_err(|_| Error::Protocol("invalid paired client key".into()))?;
++        authenticate_client(&client, &key, &[&client_pub, client_id, self.verify_pub.as_bytes()])?;
++        self.cipher = Some(CompanionCipher::new(
++            &hkdf_expand("", "ServerEncrypt-main", &shared),
++            &hkdf_expand("", "ClientEncrypt-main", &shared),
++            12,
++        )?);
+         self.send_opack(
+             FrameType::PvNext,
+             &Value::dict(vec![Value::kv(
+@@ -567,8 +653,6 @@ impl CompanionSession {
+     }
+
+     async fn handle_control(&mut self, data: &Value) -> Result<()> {
+-        self.delegate
+-            .on_event(EventKind::ControlMessage, &data.to_string());
+         // iOS 27 sends `_systemInfo` with the identifier in the `model` key
+         // instead of `_i`; accept both so the `_systemInfo` arm below fires.
+         let identifier = data
+@@ -580,6 +664,8 @@ impl CompanionSession {
+         let xid = data.get("_x").and_then(Value::as_int);
+         let content = data.get("_c").cloned().unwrap_or(Value::dict(vec![]));
+
++        debug!("control message: {:?}, transaction: {xid:?}", identifier);
++
+         match identifier.as_deref() {
+             Some("_sessionStart") => {
+                 self.session_established.store(true, Ordering::SeqCst);
+@@ -682,7 +768,7 @@ impl CompanionSession {
+                                     xid,
+                                     Some(Value::dict(vec![Value::kv(
+                                         "MediaControlFlags",
+-                                        Value::Int(MEDIA_CONTROL_VOLUME),
++                                        Value::Int(MEDIA_CONTROL_FLAGS),
+                                     )])),
+                                 )
+                                 .await?;
+@@ -711,7 +797,7 @@ impl CompanionSession {
+                     xid,
+                     Some(Value::dict(vec![Value::kv(
+                         "MediaControlFlags",
+-                        Value::Int(MEDIA_CONTROL_VOLUME),
++                        Value::Int(MEDIA_CONTROL_FLAGS),
+                     )])),
+                     0,
+                 )
+@@ -724,12 +810,53 @@ impl CompanionSession {
+                 self.handle_media_control(&content, xid).await?;
+             }
+             Some("_tiStart") => {
+-                self.send_response(
+-                    xid,
+-                    Some(Value::dict(vec![Value::kv("_tiE", Value::Bool(false))])),
+-                    0,
+-                )
+-                .await?;
++                if text_input_enabled() {
++                    // Pretend a text field is focused so the phone shows its
++                    // keyboard (and dictation mic).
++                    self.ti.reset();
++                    let archive = text_input::build_session_archive(&self.ti_uuid, "", "Mac");
++                    self.send_response(
++                        xid,
++                        Some(Value::dict(vec![Value::kv("_tiD", Value::Bytes(archive.clone()))])),
++                        0,
++                    )
++                    .await?;
++                    self.send_event(
++                        "_tiStarted",
++                        None,
++                        Some(Value::dict(vec![Value::kv("_tiD", Value::Bytes(archive))])),
++                    )
++                    .await?;
++                    info!("<< _tiStart: announced text input session");
++                    self.inspector.emit("text_input", "{\"state\":\"started\"}");
++                } else {
++                    self.send_response(
++                        xid,
++                        Some(Value::dict(vec![Value::kv("_tiE", Value::Bool(false))])),
++                        0,
++                    )
++                    .await?;
++                }
++            }
++            Some("_tiC") => {
++                if xid.is_some() {
++                    self.send_response(xid, None, 0).await?;
++                }
++                let data = content.get("_tiD").and_then(Value::as_bytes).unwrap_or(b"").to_vec();
++                let ops = text_input::parse_operations(&data);
++                for op in &ops {
++                    for step in self.ti.apply(op) {
++                        if step.back > 0 {
++                            self.delegate.on_text_delete(step.back);
++                        }
++                        if !step.text.is_empty() {
++                            self.delegate.on_text_insert(&step.text);
++                        }
++                    }
++                }
++                if !ops.is_empty() {
++                    self.inspector.emit("text_input", "{\"state\":\"edit\"}");
++                }
+             }
+             Some("FetchLaunchableApplicationsEvent") => {
+                 self.send_response(
+@@ -810,7 +937,7 @@ impl CompanionSession {
+             }
+             _ => {
+                 if let Some(id) = &identifier {
+-                    debug!("<< unhandled control message: {id} content={content}");
++                    debug!("unhandled control message: {id}");
+                 }
+                 if xid.is_some() {
+                     self.send_response(xid, None, 0).await?;
+@@ -866,7 +993,7 @@ impl CompanionSession {
+                         "MediaControlStatus",
+                         xid,
+                         Some(Value::dict(vec![
+-                            Value::kv("MediaControlFlags", Value::Int(MEDIA_CONTROL_VOLUME)),
++                            Value::kv("MediaControlFlags", Value::Int(MEDIA_CONTROL_FLAGS)),
+                             Value::kv("Muted", Value::Bool(self.muted)),
+                         ])),
+                     )
+@@ -876,7 +1003,7 @@ impl CompanionSession {
+                         xid,
+                         Some(Value::dict(vec![Value::kv(
+                             "_mcF",
+-                            Value::Int(MEDIA_CONTROL_VOLUME),
++                            Value::Int(MEDIA_CONTROL_FLAGS),
+                         )])),
+                     )
+                     .await?;
+@@ -911,6 +1038,10 @@ impl CompanionSession {
+             .or_else(|| content.get("_mcc"))
+             .and_then(Value::as_int);
+         let mut response = Value::dict(vec![]);
++        if let Some(name) = media_skip_button(command, content) {
++            self.delegate.on_button(name);
++            self.inspector.emit("button", &format!(r#"{{"name":"{name}"}}"#));
++        }
+         match command {
+             // GetVolume: report 0 while muted so the phone's volume HUD shows
+             // an empty bar — the only visual mute feedback this protocol has.
+@@ -954,6 +1085,7 @@ impl CompanionSession {
+         let phase = content.get("_tPh").and_then(Value::as_int).unwrap_or(0);
+         let x = content.get("_cx").and_then(Value::as_float);
+         let y = content.get("_cy").and_then(Value::as_float);
++        let ns = content.get("_ns").and_then(Value::as_int);
+
+         let mode_u8 = self.trackpad_mode.load(Ordering::SeqCst);
+         let mode = TrackpadMode::from_u8(mode_u8);
+@@ -964,7 +1096,16 @@ impl CompanionSession {
+                 self.touch_origin = Some((x, y));
+                 self.touch_last = Some((x, y));
+                 self.touch_moved = false;
+-                if mode == TrackpadMode::Mouse {
++                // Phones only report one finger (`_tFg` is always 1), so a
++                // touch that starts on the right edge scrolls instead of
++                // moving the pointer (like a laptop touchpad's scroll strip).
++                self.touch_scroll = mode == TrackpadMode::Mouse && x >= SCROLL_EDGE_X;
++                if self.touch_drag.end() {
++                    // previous drag never got its finger-up: release the button
++                    self.delegate.on_drag(0.0, 0.0, TouchPhase::Ended);
++                }
++                if mode == TrackpadMode::Mouse && !self.touch_scroll {
++                    self.touch_drag.begin(ns, (x, y));
+                     self.delegate.on_touch(0.0, 0.0, TouchPhase::Began);
+                 }
+                 self.inspector.emit("touch", "{\"phase\":1,\"dx\":0.0,\"dy\":0.0}");
+@@ -976,6 +1117,17 @@ impl CompanionSession {
+         };
+         let position = (x, y);
+
++        if phase == 5 {
++            // touch cancelled (e.g. the keyboard appeared): no click/swipe
++            self.touch_origin = None;
++            self.touch_last = None;
++            self.touch_scroll = false;
++            if self.touch_drag.end() {
++                self.delegate.on_drag(0.0, 0.0, TouchPhase::Ended);
++            }
++            return;
++        }
++
+         if phase != 4 {
+             // intermediate move
+             if let Some(last) = self.touch_last {
+@@ -984,7 +1136,19 @@ impl CompanionSession {
+                 if dx != 0.0 || dy != 0.0 {
+                     if mode == TrackpadMode::Mouse {
+                         self.touch_moved = true;
+-                        self.delegate.on_touch(dx, dy, TouchPhase::Moved);
++                        if self.touch_scroll {
++                            self.delegate.on_scroll(dx, dy);
++                        } else {
++                            let (kind, started) = self.touch_drag.update(ns, position);
++                            if started {
++                                self.delegate.on_drag(0.0, 0.0, TouchPhase::Began);
++                            }
++                            if kind == GestureKind::Drag {
++                                self.delegate.on_drag(dx, dy, TouchPhase::Moved);
++                            } else {
++                                self.delegate.on_touch(dx, dy, TouchPhase::Moved);
++                            }
++                        }
+                     }
+                     self.inspector.emit(
+                         "touch",
+@@ -1003,7 +1167,14 @@ impl CompanionSession {
+         let dy = position.1 - origin.1;
+         let distance = dx.abs().max(dy.abs());
+
+-        if mode == TrackpadMode::Mouse {
++        let was_scroll = std::mem::take(&mut self.touch_scroll);
++        if self.touch_drag.end() {
++            // drag finished: release the button, no click
++            self.delegate.on_drag(0.0, 0.0, TouchPhase::Ended);
++            self.inspector.emit("touch", "{\"phase\":4,\"drag\":true}");
++            return;
++        }
++        if mode == TrackpadMode::Mouse && !was_scroll {
+             self.delegate.on_touch(dx, dy, TouchPhase::Ended);
+         }
+         self.inspector.emit(
+@@ -1017,7 +1188,7 @@ impl CompanionSession {
+         }
+
+         if mode == TrackpadMode::Mouse {
+-            if distance < TAP_MAX_DISTANCE {
++            if distance < TAP_MAX_DISTANCE && !was_scroll {
+                 self.delegate.on_event(EventKind::MouseClick, "");
+                 self.inspector.emit("button", "{\"name\":\"click\"}");
+             }
+@@ -1052,11 +1223,226 @@ impl CompanionSession {
+     }
+ }
+
++type Tlv = std::collections::BTreeMap<u8, Vec<u8>>;
++
++fn required_tlv(data: &Tlv, tag: u8) -> Result<&[u8]> {
++    data.get(&tag).map(Vec::as_slice).filter(|value| !value.is_empty())
++        .ok_or_else(|| Error::Protocol("missing pairing data".into()))
++}
++
++fn authenticate_client(data: &Tlv, public_key: &[u8; 32], parts: &[&[u8]]) -> Result<()> {
++    let invalid = |_| Error::Protocol("client signature verification failed".into());
++    let key = VerifyingKey::from_bytes(public_key).map_err(invalid)?;
++    let signature = Signature::from_slice(required_tlv(data, tags::SIGNATURE)?).map_err(invalid)?;
++    key.verify_strict(&parts.concat(), &signature).map_err(invalid)
++}
++
++fn pairing_path(server: &[u8], client: &[u8]) -> std::path::PathBuf {
++    crate::settings::get_settings_file_path()
++        .with_file_name("paired-controllers")
++        .join(hex::encode(Sha256::digest(server)))
++        .join(hex::encode(Sha256::digest(client)))
++}
++
+ impl Drop for CompanionSession {
+     fn drop(&mut self) {
++        if matches!(self.touch_drag.kind(), GestureKind::Drag) {
++            self.delegate.on_drag(0.0, 0.0, TouchPhase::Ended);
++        }
+         if self.session_established.load(Ordering::SeqCst) {
+             self.inspector.session_stopped();
+         }
+     }
+ }
+
++
++/// Simulated iPhone remote messages and their resulting actions.
++#[cfg(test)]
++mod sim_tests {
++    use super::*;
++    use crate::crypto::CompanionCipher;
++    use crate::registry::{ActiveConnectionTracker, DeviceRegistry};
++    use std::sync::Mutex as StdMutex;
++    use std::time::Duration;
++
++    #[test]
++    fn client_signature_must_match_the_session() {
++        let key = SigningKey::from_bytes(&[11; 32]);
++        let public_key = key.verifying_key().to_bytes();
++        let parts: &[&[u8]] = &[b"client-session", b"controller", b"server-session"];
++        let signature = key.sign(&parts.concat()).to_bytes();
++        let proof = tlv::read(&tlv::write(&[(tags::SIGNATURE, &signature)]));
++        assert!(authenticate_client(&proof, &public_key, parts).is_ok());
++        assert!(authenticate_client(&Tlv::new(), &public_key, parts).is_err());
++        assert!(authenticate_client(&proof, &public_key, &[b"other-session"]).is_err());
++    }
++
++    #[derive(Default)]
++    struct Recorder {
++        log: StdMutex<Vec<String>>,
++        text: StdMutex<String>,
++    }
++
++    impl Recorder {
++        fn take(&self) -> Vec<String> {
++            std::mem::take(&mut *self.log.lock().unwrap())
++        }
++        fn count(log: &[String], prefix: &str) -> usize {
++            log.iter().filter(|l| l.starts_with(prefix)).count()
++        }
++    }
++
++    impl AtvDelegate for Recorder {
++        fn on_button(&self, name: &str) {
++            self.log.lock().unwrap().push(format!("button {name}"));
++        }
++        fn on_touch(&self, dx: f64, dy: f64, phase: TouchPhase) {
++            self.log.lock().unwrap().push(format!("touch {phase:?} {dx} {dy}"));
++        }
++        fn on_scroll(&self, dx: f64, dy: f64) {
++            self.log.lock().unwrap().push(format!("scroll {dx} {dy}"));
++        }
++        fn on_drag(&self, dx: f64, dy: f64, phase: TouchPhase) {
++            self.log.lock().unwrap().push(format!("drag {phase:?} {dx} {dy}"));
++        }
++        fn on_text_insert(&self, text: &str) {
++            self.text.lock().unwrap().push_str(text);
++            self.log.lock().unwrap().push(format!("insert {text:?}"));
++        }
++        fn on_text_delete(&self, count: usize) {
++            let mut t = self.text.lock().unwrap();
++            for _ in 0..count {
++                t.pop();
++            }
++            self.log.lock().unwrap().push(format!("delete {count}"));
++        }
++        fn on_event(&self, kind: EventKind, _detail: &str) {
++            if kind == EventKind::MouseClick {
++                self.log.lock().unwrap().push("click".into());
++            }
++        }
++    }
++
++    async fn session(mode: TrackpadMode) -> (CompanionSession, Arc<Recorder>, tokio::task::JoinHandle<()>) {
++        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++        let addr = listener.local_addr().unwrap();
++        let client = tokio::net::TcpStream::connect(addr).await.unwrap();
++        let (server, _) = listener.accept().await.unwrap();
++        // Drain whatever the session sends back to the "phone".
++        let drain = tokio::spawn(async move {
++            use tokio::io::AsyncReadExt;
++            let mut c = client;
++            let mut buf = [0u8; 4096];
++            while matches!(c.read(&mut buf).await, Ok(n) if n > 0) {}
++        });
++        let (_r, w) = server.into_split();
++        let rec = Arc::new(Recorder::default());
++        let identity = DeviceIdentity::detect();
++        let mut s = CompanionSession::new(
++            Arc::new(Mutex::new(w)),
++            rec.clone(),
++            &identity,
++            1111,
++            Arc::new(AtomicBool::new(mode == TrackpadMode::Mouse)),
++            Arc::new(AtomicU8::new(mode as u8)),
++            InspectorHub::new(),
++            Arc::new(Mutex::new(DeviceRegistry::new(Duration::from_secs(60)))),
++            Arc::new(Mutex::new(ActiveConnectionTracker::new())),
++            1,
++            "127.0.0.1".into(),
++            Arc::new(AtomicBool::new(false)),
++        );
++        // Pretend pair-verify finished so responses can be encrypted.
++        s.cipher = Some(CompanionCipher::new(&[1; 32], &[2; 32], 12).unwrap());
++        (s, rec, drain)
++    }
++
++    fn msg(id: &str, xid: u64, content: Value) -> Value {
++        Value::dict(vec![
++            Value::kv("_i", Value::Str(id.into())),
++            Value::kv("_x", Value::Int(xid)),
++            Value::kv("_t", Value::Int(2)),
++            Value::kv("_c", content),
++        ])
++    }
++
++    fn touch(ns: u64, phase: u64, x: f64, y: f64) -> Value {
++        msg(
++            "_hidT",
++            0,
++            Value::dict(vec![
++                Value::kv("_ns", Value::Int(ns)),
++                Value::kv("_tFg", Value::Int(1)),
++                Value::kv("_tPh", Value::Int(phase)),
++                Value::kv("_cx", Value::Int(x as u64)),
++                Value::kv("_cy", Value::Int(y as u64)),
++            ]),
++        )
++    }
++
++    #[tokio::test]
++    async fn media_seek_buttons_dispatch_once_per_action() {
++        let (mut s, rec, _drain) = session(TrackpadMode::Mouse).await;
++        for (index, (identifier, key, command, seconds)) in [
++            ("_mcc", "_mcc", 7, 10.0),
++            ("MediaControlCommand", "MediaControlCommand", 7, -10.0),
++            ("_mcc", "_mcc", 7, 0.0),
++            ("_mcc", "_mcc", 8, 0.0),
++            ("_mcc", "_mcc", 9, 0.0),
++            ("_mcc", "_mcc", 10, 0.0),
++            ("_mcc", "_mcc", 11, 0.0),
++        ].into_iter().enumerate() {
++            let content = Value::dict(vec![
++                Value::kv(key, Value::Int(command)),
++                Value::kv("_skpS", Value::Double(seconds)),
++            ]);
++            s.handle_control(&msg(identifier, index as u64 + 1, content)).await.unwrap();
++        }
++        assert_eq!(rec.take(), [
++            "button skip_forward", "button skip_backward",
++            "button skip_forward", "button skip_backward",
++        ]);
++    }
++
++    #[tokio::test]
++    async fn hold_then_move_drags_without_click() {
++        let (mut s, rec, _d) = session(TrackpadMode::Mouse).await;
++        let ms = 1_000_000u64;
++        s.handle_control(&touch(0, 1, 400.0, 500.0)).await.unwrap();
++        s.handle_control(&touch(300 * ms, 2, 403.0, 501.0)).await.unwrap();
++        s.handle_control(&touch(500 * ms, 2, 450.0, 500.0)).await.unwrap();
++        s.handle_control(&touch(520 * ms, 2, 500.0, 520.0)).await.unwrap();
++        s.handle_control(&touch(540 * ms, 4, 500.0, 520.0)).await.unwrap();
++        let log = rec.take();
++        let drags: Vec<_> = log.iter().filter(|l| l.starts_with("drag")).cloned().collect();
++        assert_eq!(drags, ["drag Began 0 0", "drag Moved 47 -1", "drag Moved 50 20", "drag Ended 0 0"]);
++        assert_eq!(Recorder::count(&log, "click"), 0, "{log:?}");
++    }
++
++    #[tokio::test]
++    async fn cancelled_drag_releases_button() {
++        let (mut s, rec, _d) = session(TrackpadMode::Mouse).await;
++        let ms = 1_000_000u64;
++        s.handle_control(&touch(0, 1, 400.0, 500.0)).await.unwrap();
++        s.handle_control(&touch(600 * ms, 2, 450.0, 500.0)).await.unwrap();
++        s.handle_control(&touch(620 * ms, 5, 450.0, 500.0)).await.unwrap();
++        let log = rec.take();
++        assert_eq!(log.last().unwrap(), "drag Ended 0 0", "{log:?}");
++    }
++
++    #[tokio::test]
++    async fn right_edge_scrolls_and_quick_tap_clicks() {
++        let (mut s, rec, _d) = session(TrackpadMode::Mouse).await;
++        let ms = 1_000_000u64;
++        s.handle_control(&touch(0, 1, 900.0, 300.0)).await.unwrap();
++        s.handle_control(&touch(20 * ms, 2, 900.0, 400.0)).await.unwrap();
++        s.handle_control(&touch(40 * ms, 4, 900.0, 450.0)).await.unwrap();
++        s.handle_control(&touch(900 * ms, 1, 300.0, 300.0)).await.unwrap();
++        s.handle_control(&touch(950 * ms, 4, 302.0, 301.0)).await.unwrap();
++        let log = rec.take();
++        assert_eq!(Recorder::count(&log, "scroll 0 100"), 1, "{log:?}");
++        assert_eq!(Recorder::count(&log, "touch Moved"), 0, "{log:?}");
++        assert_eq!(Recorder::count(&log, "click"), 1, "{log:?}");
++        assert_eq!(Recorder::count(&log, "drag"), 0, "{log:?}");
++    }
++}
+diff --git a/crates/atv-core/src/text_input.rs b/crates/atv-core/src/text_input.rs
+new file mode 100644
+index 0000000..b79878c
+--- /dev/null
++++ b/crates/atv-core/src/text_input.rs
+@@ -0,0 +1,329 @@
++//! Remote Text Input (RTI) support for the Companion `_tiStart` / `_tiC`
++//! messages.
++//!
++//! When a real Apple TV has a focused text field it answers the remote's
++//! `_tiStart` request with `_tiD`: an `NSKeyedArchiver` binary plist (archiver
++//! name `RTIKeyedArchiver`) describing the editing session (session UUID,
++//! document traits and current document state). The phone then shows its
++//! keyboard and streams edits back as `_tiC` events whose `_tiD` holds an
++//! archived `RTITextOperations` object (keyboard output with inserted text,
++//! deletion count, or a `textToAssert` that replaces the whole field).
++//!
++//! The archive layout here mirrors what pyatv sends/parses on the client
++//! side (`pyatv/protocols/companion/plist_payloads`), so it is a best-effort
++//! reconstruction. Every incoming archive can be dumped as XML via
++//! [`describe`] to adjust field names against captures from real devices.
++
++use plist::{Dictionary, Uid, Value as P};
++
++pub use crate::text_tracker::TextOp;
++
++/// Small helper that appends objects to an NSKeyedArchiver `$objects` table.
++struct Archive {
++    objects: Vec<P>,
++}
++
++impl Archive {
++    fn new() -> Self {
++        Self { objects: vec![P::String("$null".into())] }
++    }
++
++    fn push(&mut self, v: P) -> P {
++        self.objects.push(v);
++        P::Uid(Uid::new((self.objects.len() - 1) as u64))
++    }
++
++    fn class(&mut self, chain: &[&str]) -> P {
++        let mut d = Dictionary::new();
++        d.insert("$classname".into(), P::String(chain[0].into()));
++        d.insert(
++            "$classes".into(),
++            P::Array(chain.iter().map(|c| P::String((*c).into())).collect()),
++        );
++        self.push(P::Dictionary(d))
++    }
++
++    fn object(&mut self, chain: &[&str], fields: Vec<(&str, P)>) -> P {
++        // Reserve our slot first so the object precedes its class, like
++        // Foundation does; order is not semantically significant.
++        let idx = self.objects.len();
++        self.objects.push(P::String(String::new()));
++        let cls = self.class(chain);
++        let mut d = Dictionary::new();
++        for (k, v) in fields {
++            d.insert(k.into(), v);
++        }
++        d.insert("$class".into(), cls);
++        self.objects[idx] = P::Dictionary(d);
++        P::Uid(Uid::new(idx as u64))
++    }
++
++    fn finish(self, top: Vec<(&str, P)>) -> Vec<u8> {
++        let mut t = Dictionary::new();
++        for (k, v) in top {
++            t.insert(k.into(), v);
++        }
++        let mut root = Dictionary::new();
++        root.insert("$version".into(), P::from(100000u64));
++        root.insert("$archiver".into(), P::String("RTIKeyedArchiver".into()));
++        root.insert("$top".into(), P::Dictionary(t));
++        root.insert("$objects".into(), P::Array(self.objects));
++        let mut out = Vec::new();
++        P::Dictionary(root)
++            .to_writer_binary(&mut out)
++            .expect("writing a plist to memory cannot fail");
++        out
++    }
++}
++
++/// Build the `_tiD` payload announcing an active text-editing session.
++pub fn build_session_archive(session_uuid: &[u8; 16], current_text: &str, title: &str) -> Vec<u8> {
++    let mut a = Archive::new();
++
++    let uuid = a.object(
++        &["NSUUID", "NSObject"],
++        vec![("NS.uuidbytes", P::Data(session_uuid.to_vec()))],
++    );
++
++    let context = a.push(P::String(current_text.into()));
++    let ti_doc = a.object(
++        &["TIDocumentState", "NSObject"],
++        vec![("contextBeforeInput", context)],
++    );
++    let doc_state = a.object(&["RTIDocumentState", "NSObject"], vec![("docSt", ti_doc)]);
++
++    let ti_traits = a.object(
++        &["TITextInputTraits", "NSObject"],
++        vec![
++            ("autocapitalizationType", P::from(0u64)),
++            ("autocorrectionType", P::from(1u64)),
++            ("keyboardType", P::from(0u64)),
++            ("returnKeyType", P::from(0u64)),
++        ],
++    );
++    let title_v = a.push(P::String(title.into()));
++    let app_id = a.push(P::String("com.apple.TVSearch".into()));
++    let traits = a.object(
++        &["RTIDocumentTraits", "NSObject"],
++        vec![
++            ("tiTraits", ti_traits),
++            ("title", title_v.clone()),
++            ("prompt", title_v),
++            ("appId", app_id.clone()),
++            ("bundleId", app_id),
++        ],
++    );
++
++    a.finish(vec![
++        ("sessionUUID", uuid),
++        ("documentTraits", traits),
++        ("documentState", doc_state),
++    ])
++}
++
++fn parse(data: &[u8]) -> Option<P> {
++    P::from_reader(std::io::Cursor::new(data)).ok()
++}
++
++struct Reader<'a> {
++    objects: &'a [P],
++}
++
++impl<'a> Reader<'a> {
++    /// Follow a UID reference (or return the value itself).
++    fn deref(&self, v: &'a P) -> &'a P {
++        match v {
++            P::Uid(u) => self.objects.get(u.get() as usize).unwrap_or(v),
++            other => other,
++        }
++    }
++
++    fn field(&self, obj: &'a P, key: &str) -> Option<&'a P> {
++        let v = self.deref(obj).as_dictionary()?.get(key)?;
++        let v = self.deref(v);
++        match v {
++            P::String(s) if s == "$null" => None,
++            _ => Some(v),
++        }
++    }
++
++    fn string(&self, obj: &'a P, key: &str) -> Option<String> {
++        let v = self.field(obj, key)?;
++        if let Some(s) = v.as_string() {
++            return Some(s.to_string());
++        }
++        // NSMutableString / NSString archived as an object
++        self.field(v, "NS.string").and_then(|s| s.as_string().map(str::to_string))
++    }
++
++    fn int(&self, obj: &'a P, key: &str) -> Option<u64> {
++        let v = self.field(obj, key)?;
++        v.as_unsigned_integer()
++            .or_else(|| v.as_signed_integer().map(|i| i.max(0) as u64))
++    }
++}
++
++/// Session UUID announced in an archive (from `_tiStart`/`_tiStarted`).
++pub fn session_uuid(data: &[u8]) -> Option<[u8; 16]> {
++    let root = parse(data)?;
++    let dict = root.as_dictionary()?;
++    let objects = dict.get("$objects")?.as_array()?;
++    let r = Reader { objects };
++    let top = dict.get("$top")?;
++    // Session archives keep it at `$top.sessionUUID`; text-operation
++    // archives at `$top.textOperations.targetSessionUUID`.
++    let uuid = r
++        .field(top, "sessionUUID")
++        .or_else(|| r.field(top, "targetSessionUUID"))
++        .or_else(|| {
++            r.field(top, "textOperations")
++                .and_then(|ops| r.field(ops, "targetSessionUUID"))
++        })?;
++    let bytes = r.field(uuid, "NS.uuidbytes")?.as_data()?;
++    bytes.try_into().ok()
++}
++
++/// Extract the edits from an incoming `_tiC` archive (`RTITextOperations`).
++pub fn parse_operations(data: &[u8]) -> Vec<TextOp> {
++    let mut ops = Vec::new();
++    let Some(root) = parse(data) else { return ops };
++    let Some(dict) = root.as_dictionary() else { return ops };
++    let Some(objects) = dict.get("$objects").and_then(P::as_array) else { return ops };
++    let r = Reader { objects };
++
++    // Usually `$top.textOperations`; fall back to scanning every object so
++    // that small layout differences between iOS versions still work.
++    let mut candidates: Vec<&P> = Vec::new();
++    if let Some(top) = dict.get("$top") {
++        if let Some(t) = r.field(top, "textOperations") {
++            candidates.push(t);
++        }
++    }
++    if candidates.is_empty() {
++        candidates.extend(objects.iter().filter(|o| {
++            o.as_dictionary().map_or(false, |d| {
++                d.contains_key("keyboardOutput")
++                    || d.contains_key("textToAssert")
++                    || d.contains_key("editingActionSelector")
++            })
++        }));
++    }
++
++    for op in candidates {
++        if let Some(text) = r.string(op, "textToAssert") {
++            ops.push(TextOp::Assert(text));
++        }
++        if let Some(out) = r.field(op, "keyboardOutput") {
++            let deletions = r.int(out, "deletionCount").unwrap_or(0) as usize;
++            if deletions > 0 {
++                ops.push(TextOp::Delete(deletions));
++            }
++            // `textToCommit` (pinyin candidate) is always followed by an
++            // `insertionText` restating the field, so only the latter is used.
++            if let Some(text) = r.string(out, "insertionText") {
++                if !text.is_empty() {
++                    ops.push(TextOp::Insert(text));
++                }
++            }
++        }
++        if let Some(sel) = r.string(op, "editingActionSelector") {
++            // The keyboard's Return/Search/Go key.
++            if sel.contains("insertNewline") || sel.contains("Return") {
++                ops.push(TextOp::Insert("\n".into()));
++            }
++        }
++    }
++    ops
++}
++
++/// Build an `RTITextOperations` archive like pyatv does (used by tests and
++/// for sending a reset to the phone).
++pub fn build_text_operation(session_uuid: &[u8; 16], insert: Option<&str>, assert: Option<&str>) -> Vec<u8> {
++    let mut a = Archive::new();
++    let uuid = a.object(
++        &["NSUUID", "NSObject"],
++        vec![("NS.uuidbytes", P::Data(session_uuid.to_vec()))],
++    );
++    let mut fields = vec![("targetSessionUUID", uuid)];
++    if let Some(text) = insert {
++        let t = a.push(P::String(text.into()));
++        let out = a.object(&["TIKeyboardOutput", "NSObject"], vec![("insertionText", t)]);
++        fields.push(("keyboardOutput", out));
++    }
++    if let Some(text) = assert {
++        let t = a.push(P::String(text.into()));
++        fields.push(("textToAssert", t));
++    }
++    let ops = a.object(&["RTITextOperations", "NSObject"], fields);
++    a.finish(vec![("textOperations", ops)])
++}
++
++/// Build one keyboard edit like the phone sends it: `deletions` backspaces,
++/// then optional `insertionText` and pinyin `textToCommit` (test helper).
++pub fn build_keyboard_edit(
++    session_uuid: &[u8; 16],
++    deletions: usize,
++    insert: Option<&str>,
++    commit: Option<&str>,
++) -> Vec<u8> {
++    let mut a = Archive::new();
++    let uuid = a.object(
++        &["NSUUID", "NSObject"],
++        vec![("NS.uuidbytes", P::Data(session_uuid.to_vec()))],
++    );
++    let mut out_fields = Vec::new();
++    if deletions > 0 {
++        out_fields.push(("deletionCount", P::Integer((deletions as u64).into())));
++    }
++    if let Some(text) = insert {
++        out_fields.push(("insertionText", a.push(P::String(text.into()))));
++    }
++    if let Some(text) = commit {
++        out_fields.push(("textToCommit", a.push(P::String(text.into()))));
++    }
++    let out = a.object(&["TIKeyboardOutput", "NSObject"], out_fields);
++    let ops = a.object(
++        &["RTITextOperations", "NSObject"],
++        vec![("targetSessionUUID", uuid), ("keyboardOutput", out)],
++    );
++    a.finish(vec![("textOperations", ops)])
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn roundtrip_insert() {
++        let uuid = [7u8; 16];
++        let data = build_text_operation(&uuid, Some("你好"), None);
++        assert_eq!(parse_operations(&data), vec![TextOp::Insert("你好".into())]);
++        assert_eq!(session_uuid(&data), Some(uuid));
++    }
++
++    #[test]
++    fn pinyin_commit() {
++        let mut a = Archive::new();
++        let t = a.push(P::String("你好".into()));
++        let out = a.object(&["TIKeyboardOutput", "NSObject"], vec![("textToCommit", t)]);
++        let ops = a.object(&["RTITextOperations", "NSObject"], vec![("keyboardOutput", out)]);
++        let data = a.finish(vec![("textOperations", ops)]);
++        assert!(parse_operations(&data).is_empty());
++    }
++
++    #[test]
++    fn roundtrip_assert() {
++        let data = build_text_operation(&[1u8; 16], None, Some(""));
++        assert_eq!(parse_operations(&data), vec![TextOp::Assert(String::new())]);
++    }
++
++    #[test]
++    fn session_archive_has_uuid() {
++        let uuid = [9u8; 16];
++        let data = build_session_archive(&uuid, "abc", "Mac");
++        assert_eq!(session_uuid(&data), Some(uuid));
++        assert!(parse(&data).is_some());
++    }
++
++
++}
+diff --git a/crates/atv-core/src/text_tracker.rs b/crates/atv-core/src/text_tracker.rs
+new file mode 100644
+index 0000000..0e32b3d
+--- /dev/null
++++ b/crates/atv-core/src/text_tracker.rs
+@@ -0,0 +1,168 @@
++//! Turns the phone's Remote Text Input edits into keystrokes for the Mac.
++//!
++//! Captured traffic (iOS 27, Control Center remote) shows the phone does not
++//! send minimal edits. Because the simulated Apple TV never echoes its
++//! document state back, the phone keeps assuming the receiver's field is
++//! empty and, after almost every change, *restates the whole content of its
++//! own text field* as one `insertionText`:
++//!
++//! ```text
++//! Insert("可以")  Insert("可以说话")  Insert("可以说话吗")      // dictation
++//! Insert(",")    Insert("这是一棵苹果树,")                      // key + restatement
++//! Delete(1)      Insert("这是一棵苹果树,但")                    // backspace + restatement
++//! ```
++//!
++//! So the tracker mirrors the phone's field: it remembers what it has typed
++//! (`model`) and, for each restatement, sends only the difference
++//! (backspaces for the diverging tail, then the new suffix). Short inserts
++//! that are not a restatement (a single key or punctuation mark) are
++//! appended; the restatement that follows then matches and types nothing.
++//! `textToAssert` messages are resyncs the phone sends while dictating or
++//! after Return; acting on them deleted real text, so they are ignored.
++//!
++//! This module only uses `std` so it can be unit-tested standalone.
++
++/// One edit requested by the phone, applied in order.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum TextOp {
++    /// Replace the whole field with this text (`textToAssert`).
++    Assert(String),
++    /// Delete this many characters before the cursor.
++    Delete(usize),
++    /// Insert text at the cursor ("\n" means Return).
++    Insert(String),
++}
++
++/// A keystroke step for the Mac: press Backspace `back` times, then type `text`.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct Step {
++    pub back: usize,
++    pub text: String,
++}
++
++/// Inserts this short that are not restatements are treated as single keys.
++const SHORT_INSERT: usize = 2;
++
++#[derive(Debug, Default, Clone)]
++pub struct TextTracker {
++    /// What we believe the phone's field holds (and what we typed for it).
++    pub model: String,
++}
++
++impl TextTracker {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    /// Forget the current field (new session / after Return).
++    pub fn reset(&mut self) {
++        self.model.clear();
++    }
++
++    pub fn apply(&mut self, op: &TextOp) -> Vec<Step> {
++        match op {
++            TextOp::Assert(_) => Vec::new(),
++            TextOp::Delete(n) => {
++                let keep = self.model.chars().count().saturating_sub(*n);
++                self.model = self.model.chars().take(keep).collect();
++                vec![Step { back: *n, text: String::new() }]
++            }
++            TextOp::Insert(raw) => {
++                // U+FFFC is the dictation placeholder (mic animation).
++                let t: String = raw.chars().filter(|c| *c != '\u{FFFC}').collect();
++                if t.is_empty() {
++                    return Vec::new();
++                }
++                if t == "\n" {
++                    self.model.clear();
++                    return vec![Step { back: 0, text: "\n".into() }];
++                }
++                let t_len = t.chars().count();
++                if t_len <= SHORT_INSERT && !self.model.is_empty() && t != self.model {
++                    self.model.push_str(&t);
++                    return vec![Step { back: 0, text: t }];
++                }
++                let common = self
++                    .model
++                    .chars()
++                    .zip(t.chars())
++                    .take_while(|(a, b)| a == b)
++                    .count();
++                let back = self.model.chars().count() - common;
++                let add: String = t.chars().skip(common).collect();
++                // A restatement that ends with Return: type it, then the
++                // next field starts empty.
++                let ends_with_return = add.ends_with('\n');
++                self.model = if ends_with_return { String::new() } else { t };
++                if back == 0 && add.is_empty() {
++                    Vec::new()
++                } else {
++                    vec![Step { back, text: add }]
++                }
++            }
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// Applies steps to a simulated Mac text field.
++    fn run(ops: &[TextOp], start: &str) -> (String, usize) {
++        let mut mac: Vec<char> = start.chars().collect();
++        let mut t = TextTracker::new();
++        let mut keys = 0;
++        for op in ops {
++            for s in t.apply(op) {
++                keys += s.back + s.text.chars().count();
++                for _ in 0..s.back {
++                    mac.pop();
++                }
++                mac.extend(s.text.chars());
++            }
++        }
++        (mac.into_iter().collect(), keys)
++    }
++
++    fn ins(s: &str) -> TextOp {
++        TextOp::Insert(s.into())
++    }
++
++    #[test]
++    fn dictation_restatements_type_once() {
++        let ops = [ins("可以"), ins("可以说话"), ins("可以说话\u{FFFC}"), ins("可以说话"), ins("可以说话吗"), TextOp::Assert(String::new()), ins("可以说话吗\u{FFFC}"), ins("可以说话吗")];
++        assert_eq!(run(&ops, "").0, "可以说话吗");
++    }
++
++    #[test]
++    fn dictation_revision_rewrites_prefix() {
++        let ops = [ins("梨树"), ins("这是一棵树"), ins("这是一棵苹果树")];
++        assert_eq!(run(&ops, "").0, "这是一棵苹果树");
++    }
++
++    #[test]
++    fn key_then_restatement() {
++        let ops = [ins("这是一棵苹果树"), ins(","), ins("这是一棵苹果树,"), ins("但是"), ins("这是一棵苹果树,但是")];
++        assert_eq!(run(&ops, "").0, "这是一棵苹果树,但是");
++    }
++
++    #[test]
++    fn backspace_then_restatement() {
++        let ops = [ins("你好"), TextOp::Delete(1), ins("你"), TextOp::Delete(1)];
++        assert_eq!(run(&ops, "X").0, "X");
++    }
++
++    #[test]
++    fn return_starts_new_field() {
++        let ops = [ins("第一句"), ins("\n"), TextOp::Assert("第一句".into()), TextOp::Assert(String::new()), ins("双"), ins("双子"), ins("双手拿着一本书"), ins("\n")];
++        assert_eq!(run(&ops, "").0, "第一句\n双手拿着一本书\n");
++    }
++
++    #[test]
++    fn english_keys_with_restatement() {
++        let ops = [ins("h"), ins("h"), ins("e"), ins("he"), ins("l"), ins("hel"), ins("l"), ins("hell")];
++        assert_eq!(run(&ops, "").0, "hell");
++    }
++
++}
